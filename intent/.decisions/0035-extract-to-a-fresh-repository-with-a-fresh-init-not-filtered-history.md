@@ -91,8 +91,9 @@ go to `schickling/dotfiles` at or before the source commit, which requires acces
 to a private repository. That cost falls hardest on exactly the readers this
 repository is being opened for, and it is accepted: the durable reasoning is
 supposed to live in `.decisions/` and `.delta/` records rather than in commit
-messages, and this corpus has 35 of the former. If that proves insufficient in
-practice, the remedy is to improve the records, not to export the history.
+messages, and this corpus arrived with 34 of the former — 35 counting this record.
+If that proves insufficient in practice, the remedy is to improve the records, not
+to export the history.
 
 Two consequences of the move itself are recorded here because they are otherwise
 invisible in the result:
