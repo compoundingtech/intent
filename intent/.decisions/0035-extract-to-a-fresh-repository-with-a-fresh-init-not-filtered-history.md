@@ -19,8 +19,8 @@ Both were taken from `schickling/dotfiles` at commit
 
 Git history could not come with them unchanged. The question this record settles
 is what happened to it, because the answer is not recoverable by inspecting the
-result: a repository whose first commit contains 111 files looks the same whether
-its history was discarded deliberately or lost by accident.
+result: a repository whose first commit lands 111 moved files in one step looks the
+same whether its history was discarded deliberately or lost by accident.
 
 ## Evidence and Argument
 
