@@ -1,0 +1,11 @@
+{
+  "schema_version": "vrs.semantic-review.assertions.v1",
+  "minimum_findings": [
+    {
+      "rule": "VRS.REVIEW.requirements.mechanism",
+      "severity": "warning",
+      "artifact": "input/context/requirements-mechanism/requirements.md",
+      "owner": "requirements.md"
+    }
+  ]
+}

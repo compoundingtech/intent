@@ -1,0 +1,11 @@
+{
+  "schema_version": "vrs.semantic-review.assertions.v1",
+  "minimum_findings": [
+    {
+      "rule": "VRS.REVIEW.open-questions.stale",
+      "severity": "warning",
+      "artifact": "input/context/stale-open-question/open-questions.md",
+      "owner": "open-questions.md"
+    }
+  ]
+}

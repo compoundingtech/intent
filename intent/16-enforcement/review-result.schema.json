@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schickling.dev/schemas/axe.vrs.review.v1.json",
+  "title": "Axe VRS Semantic Review Result",
+  "type": "object",
+  "required": ["schema_version", "summary", "findings"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "axe.vrs.review.v1"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "rule",
+          "severity",
+          "artifact",
+          "owner",
+          "evidence",
+          "suggested_fix",
+          "gate"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "pattern": "^VRS\\.REVIEW\\.[a-z0-9.-]+$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["info", "warning", "error"]
+          },
+          "gate": {
+            "type": "string",
+            "const": "review"
+          },
+          "artifact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "suggested_fix": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

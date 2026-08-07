@@ -1,0 +1,11 @@
+{
+  "schema_version": "vrs.semantic-review.assertions.v1",
+  "minimum_findings": [
+    {
+      "rule": "VRS.REVIEW.vision.mechanism",
+      "severity": "warning",
+      "artifact": "input/context/vision-mechanism/vision.md",
+      "owner": "vision.md"
+    }
+  ]
+}

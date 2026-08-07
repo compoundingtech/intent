@@ -1,0 +1,15 @@
+{
+  "schema_version": "axe.vrs.review.v1",
+  "summary": "1 semantic concern found.",
+  "findings": [
+    {
+      "rule": "VRS.REVIEW.vision.mechanism",
+      "severity": "warning",
+      "gate": "review",
+      "artifact": "input/context/vision-mechanism/vision.md",
+      "owner": "vision.md",
+      "evidence": "The vision prescribes a Rust CLI, SQLite cache, and GitHub Actions workflow.",
+      "suggested_fix": "Move implementation mechanisms to requirements, spec, or decisions; keep vision focused on durable intent."
+    }
+  ]
+}

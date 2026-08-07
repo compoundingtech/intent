@@ -1,0 +1,15 @@
+{
+  "schema_version": "axe.vrs.review.v1",
+  "summary": "1 semantic concern found.",
+  "findings": [
+    {
+      "rule": "VRS.REVIEW.spec.rationale",
+      "severity": "warning",
+      "gate": "review",
+      "artifact": "input/context/spec-rationale/spec.md",
+      "owner": "spec.md",
+      "evidence": "The spec explains that a database was rejected as overkill and file-backed cursors were chosen.",
+      "suggested_fix": "Move the choice rationale and rejected option to a decision record; keep the spec focused on operational behavior."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "axe.vrs.review.v1",
+  "summary": "1 semantic concern found.",
+  "findings": [
+    {
+      "rule": "VRS.REVIEW.requirements.mechanism",
+      "severity": "warning",
+      "gate": "review",
+      "artifact": "input/context/requirements-mechanism/requirements.md",
+      "owner": "requirements.md",
+      "evidence": "REQ-R01 requires SQLite tables named `vrs_nodes` and `vrs_edges`.",
+      "suggested_fix": "Move storage design to spec or a decision record; keep the requirement focused on observable caching behavior."
+    }
+  ]
+}

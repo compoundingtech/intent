@@ -1,0 +1,10 @@
+{
+  "schema_version": "vrs.semantic-review.fixture.v1",
+  "id": "vision-mechanism",
+  "purpose": "Detect implementation mechanism in vision.",
+  "covers": ["VRS.REVIEW.vision.mechanism"],
+  "prompt_ref": "../../../16-enforcement/review-prompt.md",
+  "schema_ref": "../../../16-enforcement/review-result.schema.json",
+  "assertion_mode": "minimum",
+  "known_limits": []
+}

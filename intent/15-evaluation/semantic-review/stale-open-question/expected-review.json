@@ -1,0 +1,15 @@
+{
+  "schema_version": "axe.vrs.review.v1",
+  "summary": "1 semantic concern found.",
+  "findings": [
+    {
+      "rule": "VRS.REVIEW.open-questions.stale",
+      "severity": "warning",
+      "gate": "review",
+      "artifact": "input/context/stale-open-question/open-questions.md",
+      "owner": "open-questions.md",
+      "evidence": "The question includes an explicit resolved answer.",
+      "suggested_fix": "Move the answer to the owning spec or decision record and remove the question from open questions."
+    }
+  ]
+}

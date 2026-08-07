@@ -1,0 +1,127 @@
+{
+  "adapter": {
+    "name": "coding-agent-adapter",
+    "version": "0.1.0"
+  },
+  "backend": {
+    "id": "codex",
+    "model": "gpt-5-codex",
+    "provider": "codex",
+    "provider_command": {
+      "argv_redacted": [
+        "codex",
+        "exec",
+        "--cd",
+        "/tmp/dotfiles-vrs-fixture-check",
+        "--sandbox",
+        "read-only",
+        "-c",
+        "<provider-config>",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--ephemeral",
+        "-c",
+        "<provider-config>",
+        "--output-schema",
+        "<schema>",
+        "--json",
+        "--output-last-message",
+        "<provider-output>",
+        "<prompt-stdin>"
+      ],
+      "binary": "codex",
+      "env_redacted": [
+        "CODEX_HOME=<provider-auth-runtime>"
+      ],
+      "omitted": [
+        "prompt",
+        "secrets",
+        "large-context"
+      ],
+      "strategy": "native-schema"
+    },
+    "requested": "codex"
+  },
+  "result": {
+    "findings": [
+      {
+        "artifact": "context/vrs/16-enforcement/spec.md",
+        "evidence": "The spec says real-provider execution policy is owned by the Axe VRS command spec, but then defines concrete policy: manual-only real-token runs, automated-context refusal, no extra token-confirmation flag, backend capability proof, stdout/report behavior.",
+        "gate": "review",
+        "owner": "Axe VRS command spec",
+        "rule": "VRS.REVIEW.semantic-ownership",
+        "severity": "warning",
+        "suggested_fix": "Move the concrete real-provider execution policy to the Axe VRS command spec, and leave this enforcement spec with only the semantic-review interface expectations it owns."
+      }
+    ],
+    "schema_version": "axe.vrs.review.v1",
+    "summary": "Semantic review found one ownership drift risk in the supplied enforcement spec. Deterministic diagnostics were empty."
+  },
+  "run": {
+    "approval": {
+      "effective": "never",
+      "enforcement_source": "sandbox-and-noninteractive-exec",
+      "requested": "never"
+    },
+    "config": {
+      "effective_policy": "isolated",
+      "loaded_behavioral_config": false,
+      "loaded_classes": [
+        "auth",
+        "runtime"
+      ],
+      "requested_policy": "isolated"
+    },
+    "context_files": [
+      {
+        "origin": "generated-artifact",
+        "path": "/tmp/.tmpgyE5fp/axe-vrs-check.json",
+        "resolved_path": "/tmp/.tmpgyE5fp/axe-vrs-check.json",
+        "role": "generated-diagnostics"
+      },
+      {
+        "origin": "workspace",
+        "path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/.experiments/2026-06-19-real-provider-review-eval.md",
+        "resolved_path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/.experiments/2026-06-19-real-provider-review-eval.md",
+        "role": "normative"
+      },
+      {
+        "origin": "workspace",
+        "path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/requirements.md",
+        "resolved_path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/requirements.md",
+        "role": "normative"
+      },
+      {
+        "origin": "workspace",
+        "path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/review-prompt.md",
+        "resolved_path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/review-prompt.md",
+        "role": "normative"
+      },
+      {
+        "origin": "workspace",
+        "path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/spec.md",
+        "resolved_path": "/tmp/dotfiles-vrs-fixture-check/context/vrs/16-enforcement/spec.md",
+        "role": "normative"
+      }
+    ],
+    "cwd": "/tmp/dotfiles-vrs-fixture-check",
+    "id": "run_610725_1781863383354_0",
+    "mode": "review",
+    "network": {
+      "effective_policy": "disabled",
+      "provider_model_transport": "required",
+      "requested_policy": "disabled"
+    },
+    "permission": {
+      "effective": "read-only",
+      "enforcement_source": "provider-native",
+      "requested": "read-only"
+    },
+    "retry": {
+      "attempts": 1,
+      "reasons": []
+    }
+  },
+  "schema_version": "coding_agent.result.v1",
+  "status": "completed"
+}
