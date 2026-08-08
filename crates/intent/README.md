@@ -16,6 +16,41 @@ embedded caller silently does not get.
 | `intent review <root>`   | Semantic review via the Coding Agent Invocation Contract.        |
 | `intent review-fixtures` | Grades semantic review against evaluation-fixture assertions.    |
 
+## `check` exiting 0 does not mean it read anything
+
+`intent check` on an empty directory, or on a path holding no VRS artifacts at all,
+exits **0** with `"diagnostics": []`. `graph` exits 0 there too, with `"nodes": []`.
+Neither exit code distinguishes "the corpus is clean" from "the corpus is not
+there", so a CI gate built on the exit code alone passes just as happily against a
+typo in a path.
+
+What discriminates is the **node count**:
+
+```console
+intent check "$corpus" --profile strict --json > report.json
+jq -e '(.diagnostics | length) == 0' report.json
+
+intent graph "$corpus" --json > graph.json
+jq -e '(.nodes | length) > 0' graph.json   # this is what proves a corpus was read
+```
+
+`.github/workflows/ci.yml` is the worked example. Copy the pair, not just the first
+half.
+
+## `axe`-flavoured identifiers in an `intent` binary
+
+Rule ids are `AXE.VRS-R01..R19`, `check --json` reports
+`"schema_version": "axe.vrs.check.v1"`, and diagnostics are prefixed
+`axe vrs check:` / `axe vrs review:`. That is not an oversight.
+
+This crate was lifted out of `schickling/dotfiles`' `axe` binary, and the acceptance
+bar for the lift is that behaviour is byte-identical to `axe vrs` across every
+command. Renaming these strings now would destroy the differential oracle that
+proves the extraction was faithful, and `axe.vrs.check.v1` is a wire contract with a
+live consumer. They are carried to one coordinated rename pass — rule ids,
+`schema_version`, the schema `$id` host and the message prefixes together, never
+piecemeal.
+
 ## Enforcement assets resolve under the corpus, never the repository
 
 `review` reads two assets from the filesystem at runtime:
@@ -69,6 +104,11 @@ runs fmt, clippy, the test suite and a proof that the packaged binary reads a
 real corpus, and `nix develop` gives you the toolchain plus `jq` and
 `check-jsonschema` that the corpus gates use.
 
-Note that `rust-toolchain.toml` pins the channel for rustup users only. A Nix
-build uses whichever toolchain nixpkgs pins and does not read that file; the two
-are not expected to agree on a patch version.
+`rust-toolchain.toml` sits at `crates/intent/`, and it is in effect in fewer places
+than it looks. rustup resolves it from the **working directory** upward, not from
+`--manifest-path` — so a command run at the repository root never sees it, which
+includes every CI job here. A Nix build does not read it either; it uses whichever
+toolchain nixpkgs pins. In practice it applies when you are working inside
+`crates/intent/` with rustup, and nowhere else. That is fine, because the crate
+pins no MSRV — but the three toolchains are not expected to agree on a patch
+version, so do not read agreement into a green run.
