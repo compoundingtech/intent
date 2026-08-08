@@ -12,6 +12,11 @@ use std::process::{Command, ExitCode};
 // layout. Resolving the review assets relative to the corpus root rather than the
 // repository root is what keeps tool and corpus co-located: `review` reads both
 // from the filesystem at runtime, so a corpus that moves takes them with it.
+/// The conventional position of a corpus inside a repository. Used only as a probe
+/// when locating a repository root: a tree either has this directory or it does not,
+/// so a repository laid out differently falls through rather than being misread.
+const CORPUS_SENTINEL: &str = "context/vrs";
+
 const SEMANTIC_REVIEW_SUBDIR: &str = "15-evaluation/semantic-review";
 const REVIEW_PROMPT_ASSET: &str = "16-enforcement/review-prompt.md";
 const REVIEW_SCHEMA_ASSET: &str = "16-enforcement/review-result.schema.json";
@@ -1214,7 +1219,7 @@ fn meta_vrs_decision_dir(root: &Path) -> PathBuf {
     if direct.is_dir() {
         return direct;
     }
-    root.join("context/vrs/.decisions")
+    root.join(CORPUS_SENTINEL).join(".decisions")
 }
 
 fn check_markdown_links(
@@ -1628,14 +1633,18 @@ fn markdown_files_direct(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error:
 /// The directory the review agent is given to work in, and the boundary its target
 /// artifacts may not escape.
 ///
-/// This is still repository-scoped rather than corpus-scoped: a reviewer reasoning
-/// about a corpus needs the repository around it. The `context/vrs` sentinel that
-/// used to back this up is gone — it named one repository's layout, and it was only
-/// ever reached when `.git` was absent. Falling back to the corpus root keeps that
-/// no-`.git` case working without the tool having to know any repository's shape.
+/// This is repository-scoped rather than corpus-scoped: a reviewer reasoning about a
+/// corpus needs the repository around it.
+///
+/// `.git` answers that for an ordinary worktree. Where it is absent — a vendored or
+/// exported source tree, or a build sandbox — the conventional corpus position is the
+/// remaining evidence of where the repository begins, so it is consulted second.
+/// Neither probe is a guess that can mislead: both name a directory that is there or
+/// is not. Only when both fail is the corpus itself the honest answer, and then there
+/// is genuinely no repository to find.
 fn review_workspace(root: &Path) -> PathBuf {
     for ancestor in root.ancestors() {
-        if ancestor.join(".git").exists() {
+        if ancestor.join(".git").exists() || ancestor.join(CORPUS_SENTINEL).is_dir() {
             return ancestor.to_path_buf();
         }
     }
@@ -2271,9 +2280,22 @@ mod tests {
         );
     }
 
-    // Covers the branch that replaced the `context/vrs` sentinel. It is only ever
-    // reached where there is no `.git` — a Nix build sandbox or a vendored source
-    // tree — so it is invisible to any interactive run.
+    // The sentinel is only consulted where there is no `.git` — a vendored or exported
+    // source tree, or a build sandbox — so an ordinary worktree masks it entirely and
+    // no interactive run can reach it. Without it the reviewer is handed the corpus as
+    // its `--cwd` and loses the repository the corpus is describing.
+    #[test]
+    fn review_workspace_finds_the_repository_by_corpus_layout_when_there_is_no_git() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let repo = fs::canonicalize(tempdir.path()).unwrap();
+        let corpus = repo.join("context/vrs");
+        fs::create_dir_all(&corpus).unwrap();
+
+        assert_eq!(review_workspace(&corpus), repo);
+    }
+
+    // Still the last resort: a corpus that is not laid out that way and has no `.git`
+    // above it has no repository to find, and the corpus itself is the honest answer.
     #[test]
     fn review_workspace_falls_back_to_the_corpus_when_there_is_no_git() {
         let tempdir = tempfile::tempdir().unwrap();
