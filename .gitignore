@@ -1,0 +1,8 @@
+# Cargo build output. Unanchored, so it matches both a repo-root `target/` and
+# `crates/intent/target/` — which is where cargo writes unless `--target-dir` says
+# otherwise, since the crate is a standalone package with no workspace root.
+target/
+
+# Artifacts the CI steps write into the checkout root while running.
+/report.json
+/graph.json

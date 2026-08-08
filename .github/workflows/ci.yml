@@ -1,0 +1,114 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Answers one question only: does this repository materialise jobs at all?
+  # A run object can exist with zero jobs — that is how dotfiles' CI sat "queued"
+  # for a month unnoticed — so the cheapest possible job runs first and proves it.
+  materialises:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "jobs materialise in this repository"
+
+  crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --locked --manifest-path crates/intent/Cargo.toml
+      - run: cargo test --locked --manifest-path crates/intent/Cargo.toml
+
+  # Port of dotfiles' `axe-vrs-context-strict`.
+  corpus-strict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # `crates/intent` is a standalone package with no workspace root, so cargo
+        # writes to `crates/intent/target/` and the steps below would not find the
+        # binary at `./target/`. `--target-dir` pins the output next to the checkout
+        # root regardless of whether a workspace root ever appears above the crate.
+      - run: cargo build --locked --release --manifest-path crates/intent/Cargo.toml --target-dir target
+
+      - name: corpus is present
+        # `intent check` exits 0 on an empty directory and on a directory holding no
+        # VRS artifacts, so "the check passed" cannot by itself distinguish a healthy
+        # corpus from a missing one. Fail on absence explicitly, before checking.
+        run: |
+          set -euo pipefail
+          test -d intent || { echo "::error::corpus directory 'intent/' does not exist"; exit 1; }
+
+      - name: strict check reports no diagnostics
+        run: |
+          set -euo pipefail
+          ./target/release/intent check intent --profile strict --json > report.json || {
+            cat report.json >&2; exit 1;
+          }
+          jq -e '
+            .schema_version == "axe.vrs.check.v1"
+            and .profile == "strict"
+            and (.diagnostics | length) == 0
+          ' report.json > /dev/null
+
+      - name: check actually read the corpus
+        # The assertion above is satisfied by a run against a path containing nothing,
+        # so on its own it cannot tell "corpus is clean" from "corpus is not there".
+        # The graph is what discriminates: it is empty for both an empty directory and
+        # a wrong path, and non-empty only when artifacts were genuinely read.
+        run: |
+          set -euo pipefail
+          ./target/release/intent graph intent --json > graph.json
+          nodes="$(jq '.nodes | length' graph.json)"
+          echo "graph nodes: $nodes"
+          jq -e '(.nodes | length) > 0' graph.json > /dev/null \
+            || { echo "::error::strict check examined 0 artifacts — wrong path or empty corpus"; exit 1; }
+
+  # Port of dotfiles' `vrs-semantic-review-fixtures`.
+  semantic-review-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install check-jsonschema
+
+      - name: fixtures and the enforcement schema are present
+        run: |
+          set -euo pipefail
+          fixtures="intent/15-evaluation/semantic-review"
+          schema="intent/16-enforcement/review-result.schema.json"
+          test -d "$fixtures" || { echo "::error::missing fixtures root: $fixtures"; exit 1; }
+          test -f "$fixtures/fixture-format.md" || { echo "::error::missing fixture-format.md"; exit 1; }
+          test -f "$schema" || { echo "::error::missing review-result schema: $schema"; exit 1; }
+
+      - name: every fixture validates against the enforcement schema
+        # Fully offline: every schema is a local file, so none is ever fetched.
+        run: |
+          set -euo pipefail
+          fixtures="intent/15-evaluation/semantic-review"
+          schema="intent/16-enforcement/review-result.schema.json"
+          found=0
+          for fixture in "$fixtures"/*/; do
+            [ -d "$fixture" ] || continue
+            found=$((found + 1))
+            name="$(basename "$fixture")"
+            test -f "$fixture/expected-review.json" \
+              || { echo "::error::$name: missing expected-review.json"; exit 1; }
+            check-jsonschema --no-cache --schemafile "$schema" "$fixture/expected-review.json" \
+              || { echo "::error::$name: expected-review.json does not satisfy the enforcement schema"; exit 1; }
+            # A fixture expecting no finding cannot protect any review behavior.
+            jq -e '.findings | length > 0' "$fixture/expected-review.json" > /dev/null \
+              || { echo "::error::$name: expected-review.json must contain at least one expected finding"; exit 1; }
+          done
+          # Without this the loop is green over zero fixtures, which is the same
+          # silent-pass this whole file exists to prevent.
+          [ "$found" -gt 0 ] || { echo "::error::no semantic-review fixtures found under $fixtures"; exit 1; }
+          echo "fixtures validated: $found"
