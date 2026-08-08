@@ -1200,12 +1200,21 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
     })
 }
 
-// Corpus-relative only. The old second branch guessed `context/vrs/.decisions` to
-// cover being handed a repository root instead of a corpus root — a guess that was
-// silently wrong for any repository laid out differently, and that let a misaimed
-// invocation look like a clean one. Pointing this at a corpus is the caller's job.
+/// The decision directory for `root`, falling back to the conventional corpus
+/// position when `root` is a repository root rather than a corpus root.
+///
+/// The fallback is strictly additive. It is consulted only when `<root>/.decisions`
+/// is absent, and it names a path that a repository laid out differently simply does
+/// not have — so it can only ever add enforcement, never remove or redirect it.
+/// Without it, `check <repo-root>` finds no decision directory, skips the shape pass
+/// and reports a clean tree: the failure mode is a false green, which is strictly
+/// worse than checking a directory the caller did not have in mind.
 fn meta_vrs_decision_dir(root: &Path) -> PathBuf {
-    root.join(".decisions")
+    let direct = root.join(".decisions");
+    if direct.is_dir() {
+        return direct;
+    }
+    root.join("context/vrs/.decisions")
 }
 
 fn check_markdown_links(

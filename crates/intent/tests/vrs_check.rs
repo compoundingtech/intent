@@ -124,6 +124,18 @@ Choose A because it fits the current scope.
             .expect("intent check")
     }
 
+    /// `check` aimed at an arbitrary path. Every other helper here hands it
+    /// `context/vrs` directly, which is exactly why a repository-root invocation could
+    /// stop enforcing decision shape without a single test noticing.
+    fn check_at(&self, path: &Path, args: &[&str]) -> Output {
+        Command::new(&self.intent)
+            .arg("check")
+            .arg(path)
+            .args(args)
+            .output()
+            .expect("intent check")
+    }
+
     fn graph(&self, args: &[&str]) -> Output {
         Command::new(&self.intent)
             .arg("graph")
@@ -304,6 +316,54 @@ No comparison table.
                 .unwrap()
                 .ends_with("0002-bad.md")
     }));
+}
+
+// The corpus-path helpers above cannot reach this: they name `context/vrs` themselves,
+// so they resolve the decision directory no matter how the tool locates it. Aiming
+// `check` at the repository root is what discriminates — and a failure here is silent,
+// because a skipped decision-shape pass exits 0 and looks like a clean tree.
+#[test]
+fn decision_shape_is_enforced_when_check_is_aimed_at_the_repository_root() {
+    let h = Harness::new();
+    fs::write(
+        h.repo.join("context/vrs/.decisions/0003-bad.md"),
+        r#"# Bad Decision
+
+Status:
+
+## Context
+
+Present.
+
+## Options
+
+No comparison table.
+
+## Decision
+"#,
+    )
+    .expect("bad decision");
+
+    let output = h.check_at(&h.repo, &["--json"]);
+    let report = stdout_json(&output);
+    let diagnostics = report["diagnostics"].as_array().unwrap();
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic["rule"] == "VRS.ENF.meta-decision-shape"
+                && diagnostic["artifact"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with("0003-bad.md")
+        }),
+        "a malformed decision must be reported when check is aimed at the repository \
+         root, not silently skipped; diagnostics:\n{}",
+        serde_json::to_string_pretty(&report["diagnostics"]).unwrap()
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "decision shape is blocking, so the run must not exit 0"
+    );
 }
 
 #[test]
