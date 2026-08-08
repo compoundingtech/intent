@@ -62,3 +62,13 @@ than assume either location; `.github/workflows/ci.yml` does exactly that.
 cargo build --locked --manifest-path crates/intent/Cargo.toml
 cargo test  --locked --manifest-path crates/intent/Cargo.toml
 ```
+
+The repository is also a flake, which is the only supported distribution — there
+is no crates.io release. `nix build .#intent` packages the CLI, `nix flake check`
+runs fmt, clippy, the test suite and a proof that the packaged binary reads a
+real corpus, and `nix develop` gives you the toolchain plus `jq` and
+`check-jsonschema` that the corpus gates use.
+
+Note that `rust-toolchain.toml` pins the channel for rustup users only. A Nix
+build uses whichever toolchain nixpkgs pins and does not read that file; the two
+are not expected to agree on a patch version.

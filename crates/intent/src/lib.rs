@@ -8,10 +8,10 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-/* Positions INSIDE a corpus, so they hold for any repository that adopts the
-   layout. Resolving the review assets relative to the corpus root rather than the
-   repository root is what keeps tool and corpus co-located: `review` reads both
-   from the filesystem at runtime, so a corpus that moves takes them with it. */
+// Positions INSIDE a corpus, so they hold for any repository that adopts the
+// layout. Resolving the review assets relative to the corpus root rather than the
+// repository root is what keeps tool and corpus co-located: `review` reads both
+// from the filesystem at runtime, so a corpus that moves takes them with it.
 const SEMANTIC_REVIEW_SUBDIR: &str = "15-evaluation/semantic-review";
 const REVIEW_PROMPT_ASSET: &str = "16-enforcement/review-prompt.md";
 const REVIEW_SCHEMA_ASSET: &str = "16-enforcement/review-result.schema.json";
@@ -208,8 +208,8 @@ impl Defaults {
         arg.unwrap_or_else(|| self.corpus_root.clone())
     }
 
-    /* Fixtures live at a fixed position INSIDE the corpus, so one caller-supplied
-       corpus root determines both defaults and they cannot drift apart. */
+    // Fixtures live at a fixed position INSIDE the corpus, so one caller-supplied
+    // corpus root determines both defaults and they cannot drift apart.
     fn fixtures_or_default(&self, arg: Option<PathBuf>) -> PathBuf {
         arg.unwrap_or_else(|| self.corpus_root.join(SEMANTIC_REVIEW_SUBDIR))
     }
@@ -1200,10 +1200,10 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
     })
 }
 
-/* Corpus-relative only. The old second branch guessed `context/vrs/.decisions` to
-   cover being handed a repository root instead of a corpus root — a guess that was
-   silently wrong for any repository laid out differently, and that let a misaimed
-   invocation look like a clean one. Pointing this at a corpus is the caller's job. */
+// Corpus-relative only. The old second branch guessed `context/vrs/.decisions` to
+// cover being handed a repository root instead of a corpus root — a guess that was
+// silently wrong for any repository laid out differently, and that let a misaimed
+// invocation look like a clean one. Pointing this at a corpus is the caller's job.
 fn meta_vrs_decision_dir(root: &Path) -> PathBuf {
     root.join(".decisions")
 }
@@ -1537,6 +1537,11 @@ fn check_reference_shape(
     Ok(())
 }
 
+// Eight arguments, one over clippy's threshold. Left as-is deliberately: this crate
+// is a lift of `axe vrs`, whose acceptance bar is that it behaves identically, and
+// grouping these into a struct is a refactor whose only motivation is a style lint.
+// Worth doing later, on its own, where a regression would be attributable.
+#[allow(clippy::too_many_arguments)]
 fn require_section(
     root: &Path,
     path: &Path,
@@ -1646,7 +1651,7 @@ fn corpus_asset(root: &Path, relative: &str) -> Result<PathBuf, String> {
 }
 
 fn automated_context_indicator() -> Option<&'static str> {
-    for name in [
+    [
         "CI",
         "GITHUB_ACTIONS",
         "BUILDKITE",
@@ -1659,12 +1664,9 @@ fn automated_context_indicator() -> Option<&'static str> {
         "CODEBUILD_BUILD_ID",
         "DRONE",
         "PRE_COMMIT",
-    ] {
-        if std::env::var(name).is_ok_and(|value| !value.is_empty() && value != "false") {
-            return Some(name);
-        }
-    }
-    None
+    ]
+    .into_iter()
+    .find(|&name| std::env::var(name).is_ok_and(|value| !value.is_empty() && value != "false"))
 }
 
 fn visit_markdown(
@@ -2228,9 +2230,9 @@ mod tests {
             .any(|d| { d.rule == "VRS.ENF.meta-decision-shape" && d.severity == Severity::Error }));
     }
 
-    /* The extraction's acceptance bar is that `axe vrs` behaves identically, and the
-       only thing holding that up is the caller keeping its own default. Locked here
-       because a regression is silent: the wrong root still exits 0. */
+    // The extraction's acceptance bar is that `axe vrs` behaves identically, and the
+    // only thing holding that up is the caller keeping its own default. Locked here
+    // because a regression is silent: the wrong root still exits 0.
     #[test]
     fn an_absent_argument_falls_back_to_the_callers_layout() {
         let axe = Defaults::corpus_root("context/vrs");
@@ -2254,12 +2256,15 @@ mod tests {
         let defaults = Defaults::corpus_root("context/vrs");
         let explicit = PathBuf::from("/somewhere/else");
         assert_eq!(defaults.root_or_default(Some(explicit.clone())), explicit);
-        assert_eq!(defaults.fixtures_or_default(Some(explicit.clone())), explicit);
+        assert_eq!(
+            defaults.fixtures_or_default(Some(explicit.clone())),
+            explicit
+        );
     }
 
-    /* Covers the branch that replaced the `context/vrs` sentinel. It is only ever
-       reached where there is no `.git` — a Nix build sandbox or a vendored source
-       tree — so it is invisible to any interactive run. */
+    // Covers the branch that replaced the `context/vrs` sentinel. It is only ever
+    // reached where there is no `.git` — a Nix build sandbox or a vendored source
+    // tree — so it is invisible to any interactive run.
     #[test]
     fn review_workspace_falls_back_to_the_corpus_when_there_is_no_git() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -2280,8 +2285,8 @@ mod tests {
         assert_eq!(review_workspace(&corpus), repo);
     }
 
-    /* The assets travel with the corpus rather than the repository: that co-location
-       is the reason the tool was moved next to the corpus in the first place. */
+    // The assets travel with the corpus rather than the repository: that co-location
+    // is the reason the tool was moved next to the corpus in the first place.
     #[test]
     fn enforcement_assets_resolve_under_the_corpus_not_the_repository() {
         let tempdir = tempfile::tempdir().unwrap();

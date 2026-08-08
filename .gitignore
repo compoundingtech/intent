@@ -6,3 +6,7 @@ target/
 # Artifacts the CI steps write into the checkout root while running.
 /report.json
 /graph.json
+
+# `nix build` output symlinks.
+/result
+/result-*

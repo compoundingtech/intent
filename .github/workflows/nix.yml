@@ -1,0 +1,33 @@
+name: nix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: nix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Deliberately its OWN workflow rather than a job inside `ci.yml`. The corpus
+  # gates there are fast and must stay separately named and independently
+  # readable; folding a multi-minute Nix build in beside them would couple the
+  # two, and collapsing them behind `nix flake check` would leave a run showing
+  # a single check named `check` instead of which corpus gate concluded and how.
+  # This lane is additive: it proves the CLI packages and that the packaged
+  # binary works, and it re-gates nothing.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      # Builds the package — which runs the crate's test suite via doCheck — and
+      # evaluates every `checks.*`: fmt, clippy, the `--help` smoke test, and the
+      # proof that the packaged binary reads a real corpus.
+      - run: nix flake check --print-build-logs
