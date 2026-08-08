@@ -81,12 +81,12 @@ checker rather than the methodology.
 
 ## Two things worth knowing early
 
-**The conventions travel.** They are plain Markdown with a naming discipline, and
-they require no tool to author or read. `livestorejs/livestore` — a different
-project, a different domain, no dependency on anything in this repository — uses
-the same artifact set and the same numbered-subsystem structure, nested two levels
-deep. Nothing in this corpus is coupled to the environment it grew up in; a text
-editor is the only requirement.
+**The conventions need no toolchain.** They are plain Markdown with a naming
+discipline: a directory layout, a set of filenames, and rules about which file
+owns which fact. Authoring and reading them takes a text editor and nothing
+else. This corpus is its own worked example — the conventions it describes are
+the conventions it is written in, so every rule it states can be seen applied
+in the files you are already reading.
 
 **The rules are mechanically checkable, and checked.** `16-enforcement` is not
 aspirational — it defines concrete rules with stable identifiers, and a real
