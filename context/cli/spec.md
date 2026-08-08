@@ -1,6 +1,6 @@
-# Spec: Axe VRS
+# Spec: intent CLI
 
-This document specifies the `axe vrs` command realization. It builds on
+This document specifies the `intent` command realization. It builds on
 [requirements.md](./requirements.md).
 
 ## Status
@@ -11,8 +11,8 @@ Draft.
 
 Defines:
 
-- `axe vrs` command surface;
-- routing between Axe, the VRS checker engine, Nix checks, and future Plan
+- `intent` command surface;
+- routing between the CLI, the VRS checker engine, Nix checks, and future Plan
   evidence;
 - output schema and migration-ratchet behavior for deterministic VRS checks;
 - semantic review routing through the portable Coding Agent Invocation Contract.
@@ -30,7 +30,7 @@ Does not define:
 
 ```text
 human / coding agent / repo check
-  -> axe vrs
+  -> intent
        -> vrs-check engine
             -> parse Markdown VRS artifacts
             -> derive graph view
@@ -41,23 +41,23 @@ Nix checks
   -> vrs-check engine
        -> blocking exit code for strict rules
 
-axe vrs review
+intent review
   -> vrs-check engine diagnostics
   -> Coding Agent Invocation Contract
        -> provider backend in read-only review mode
        -> schema-validated semantic findings
 ```
 
-`axe vrs` is an operator and agent UX. The checker engine is the reusable
+`intent` is an operator and agent UX. The checker engine is the reusable
 implementation boundary. Meta-VRS remains the semantic authority.
 
 ## Command Surface
 
 ```text
-axe vrs check [path] [--profile local|strict] [--warnings-as-errors] [--json]
-axe vrs graph [path] [--json]
-axe vrs review [path] [--profile local|strict] [--backend <id>] [--coding-agent <path>] [--report <path>]
-axe vrs review-fixtures [path] [--fixture <id>]... [--backend <id>] [--coding-agent <path>] [--json] [--report <path>]
+intent check [path] [--profile local|strict] [--warnings-as-errors] [--json]
+intent graph [path] [--json]
+intent review [path] [--profile local|strict] [--backend <id>] [--coding-agent <path>] [--report <path>]
+intent review-fixtures [path] [--fixture <id>]... [--backend <id>] [--coding-agent <path>] [--json] [--report <path>]
 ```
 
 Default `path` is `context/vrs`, and
@@ -76,14 +76,14 @@ meta-VRS-supported child node shapes.
 | `vrs links` | checker engine link pass | Git working tree/current commit |
 | `vrs ids` | checker engine ID pass | Meta-VRS ID contract |
 | `vrs graph` | checker engine graph extraction | Markdown VRS artifacts are source; graph is derived |
-| `vrs review` | checker diagnostics plus `$CODING_AGENT` review invocation | VRS/Axe own prompt and schema; Coding Agent Invocation Contract owns provider portability |
-| `vrs review-fixtures` | same review invocation over a materialized fixture copy, graded against fixture assertions | VRS evaluation owns fixtures and assertion semantics; Axe owns the runner |
-| `vrs doctor` | Axe command plus checker metadata | Axe for UX; checker for rule/migration state |
+| `vrs review` | checker diagnostics plus `$CODING_AGENT` review invocation | VRS/CLI own prompt and schema; Coding Agent Invocation Contract owns provider portability |
+| `vrs review-fixtures` | same review invocation over a materialized fixture copy, graded against fixture assertions | VRS evaluation owns fixtures and assertion semantics; the CLI owns the runner |
+| `vrs doctor` | CLI command plus checker metadata | CLI for UX; checker for rule/migration state |
 | Nix check | checker engine strict profile | Nix check is blocking gate |
 
 ## Checker Engine Boundary
 
-The checker engine should be callable without the Axe CLI. It owns:
+The checker engine should be callable without the `intent` CLI. It owns:
 
 - filesystem discovery of VRS nodes;
 - Markdown parsing needed for deterministic rules;
@@ -94,7 +94,7 @@ The checker engine should be callable without the Axe CLI. It owns:
 - derived graph JSON;
 - diagnostic JSON.
 
-Axe owns:
+The CLI owns:
 
 - CLI argument parsing;
 - problems-first human rendering;
@@ -109,12 +109,12 @@ Nix owns:
 - reproducible local/CI execution.
 
 The Coding Agent Invocation Contract owns provider-portable non-interactive
-agent invocation. `axe vrs review` consumes it; it does not call provider CLIs
+agent invocation. `intent review` consumes it; it does not call provider CLIs
 directly.
 
 ## Implementation Order
 
-The first `axe vrs` implementation slice should build deterministic enforcement
+The first `intent` implementation slice should build deterministic enforcement
 primitives before semantic review:
 
 1. checker engine boundary and filesystem discovery;
@@ -125,7 +125,7 @@ primitives before semantic review:
    facts;
 6. `review` through CAIC after deterministic diagnostics are stable.
 
-`axe vrs review` remains part of the public target surface, but it should not be
+`intent review` remains part of the public target surface, but it should not be
 implemented before the deterministic checker can produce bounded, schema-shaped
 diagnostics for the review packet.
 
@@ -182,7 +182,7 @@ when introduced.
 
 ## Derived Graph
 
-`axe vrs graph --json` emits the mechanically extracted, resolvable subset of
+`intent graph --json` emits the mechanically extracted, resolvable subset of
 the VRS graph with a deliberately small v0 shape:
 
 ```json
@@ -247,13 +247,13 @@ emits an ambiguous-structure diagnostic rather than inventing a node or edge.
 
 ## Semantic Review
 
-`axe vrs review` runs semantic review after deterministic checks. It builds a
+`intent review` runs semantic review after deterministic checks. It builds a
 bounded review packet from:
 
 - the baked VRS semantic-review prompt owned at
   [intent/16-enforcement/review-prompt.md](../../intent/16-enforcement/review-prompt.md);
 - the target VRS files;
-- `axe vrs check --json` diagnostics;
+- `intent check --json` diagnostics;
 - the semantic review output schema at
   [intent/16-enforcement/review-result.schema.json](../../intent/16-enforcement/review-result.schema.json).
 
@@ -280,13 +280,13 @@ Callers do not provide an arbitrary prompt. Prompt and schema changes happen in
 the VRS enforcement node and are validated through eval fixtures before becoming
 the baked review version.
 
-Provider readiness is checked before spending model tokens. `axe vrs review`
+Provider readiness is checked before spending model tokens. `intent review`
 first runs `$CODING_AGENT capabilities --json`, resolves `--backend <id>` or the
 advertised `default_backend`, and validates that backend against the review
 contract. It does not invoke `$CODING_AGENT run` until the selected backend is
 known to the adapter and supports all of the requested contract pieces:
 
-| Capability | Required value for `axe vrs review` |
+| Capability | Required value for `intent review` |
 | --- | --- |
 | mode | `review` |
 | permission | `read-only` with provider-native, agent-policy, or adapter-sandbox enforcement |
@@ -298,11 +298,11 @@ known to the adapter and supports all of the requested contract pieces:
 Known backend support is capability-based, not provider-name-based. If the
 default backend or a `--backend <id>` override is unknown, unavailable, missing
 one of these capabilities, or only supports a weaker permission/config/output
-contract, `axe vrs review` fails before invoking the provider. The supported
-backend set may expand without changing the Axe VRS contract as long as the
+contract, `intent review` fails before invoking the provider. The supported
+backend set may expand without changing the `intent` CLI contract as long as the
 backend satisfies these same readiness criteria.
 
-Production readiness is backend-scoped. A backend is ready for `axe vrs review`
+Production readiness is backend-scoped. A backend is ready for `intent review`
 when its capability preflight passes, token-free fake-provider regression tests
 cover its provider-specific command mapping, and at least one bounded manual
 real-provider run against a small existing VRS subsystem has produced a
@@ -314,12 +314,12 @@ Semantic findings use the diagnostic shape where possible, but their gate is
 `review` unless a later VRS decision makes a specific semantic rule blocking.
 Review mode must not write files or silently apply fixes.
 
-Any `axe vrs review` or fixture-review mode that calls a real provider and
+Any `intent review` or fixture-review mode that calls a real provider and
 spends model tokens is manual-only. It must not be part of CI, Nix checks,
 pre-commit hooks, scheduled jobs, or default automated validation. Automated
 validation may cover deterministic fixture shape and fake-provider invocation
 only. The command does not require an additional token-spend confirmation flag;
-invoking `axe vrs review` is the explicit operator action. The mechanical guard
+invoking `intent review` is the explicit operator action. The mechanical guard
 is that the command fails before provider invocation when it detects CI or other
 known automated environments.
 
@@ -333,7 +333,7 @@ not imply a nonzero exit code unless a future explicit fail policy is added.
 
 ## Fixture Review Grading
 
-`axe vrs review-fixtures` is the runner for the semantic-review fixtures owned by
+`intent review-fixtures` is the runner for the semantic-review fixtures owned by
 [intent/15-evaluation](../../intent/15-evaluation/spec.md). It exists so the
 minimum-assertion contract is executable rather than descriptive.
 
@@ -343,7 +343,7 @@ For each selected fixture it:
    and `schema_ref`, so the graded run uses the assets the fixture claims;
 2. materializes the fixture's `input/` tree into an isolated temporary
    workspace, leaving the tracked corpus untouched;
-3. runs the same review invocation as `axe vrs review` with that workspace as
+3. runs the same review invocation as `intent review` with that workspace as
    both the review root and the coding-agent working directory, which makes the
    fixture-relative artifact paths in `assertions.json` the paths a review
    result reports;
@@ -364,7 +364,7 @@ review could not be run at all.
 
 Fixture review spends model tokens whenever it is pointed at a real backend, so
 it carries the same manual-only policy and the same automated-context refusal as
-`axe vrs review`, and it adds no token-spend flag. Automated coverage uses
+`intent review`, and it adds no token-spend flag. Automated coverage uses
 fake/probe providers.
 
 ## Failure Behavior
@@ -387,7 +387,7 @@ fake/probe providers.
 
 Plan may record:
 
-- `axe vrs check --json` output as evidence;
+- `intent check --json` output as evidence;
 - proposed VRS patches as review/proposed-patch records;
 - resolved durable learning routed to VRS artifacts.
 
@@ -397,8 +397,8 @@ around VRS changes; `vrs-check` and meta-VRS keep semantic ownership.
 ## Anti-Goals
 
 - Do not create a competing top-level `vrs` CLI until there is evidence that
-  non-Axe users need it.
-- Do not make Axe the authority for VRS semantics.
+  users need one separate from `intent`.
+- Do not make the CLI the authority for VRS semantics.
 - Do not make generated graph JSON authoritative.
 - Do not make warning-mode rules permanent.
 - Do not silently rewrite VRS artifacts.
