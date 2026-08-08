@@ -318,6 +318,43 @@ No comparison table.
     }));
 }
 
+// Drives the SHIPPED binary rather than a command tree built in the test, because the
+// defect this covers is precisely a default that exists after parsing but never
+// reaches the command tree `--help` renders. A test that built its own `Command` would
+// reproduce the blind spot instead of catching it.
+#[test]
+fn help_advertises_the_default_root_the_run_will_use() {
+    let h = Harness::new();
+    // The standalone binary checks the corpus it is run in; `.` is the documented
+    // default, and `review-fixtures` derives its own from the same corpus root.
+    for (subcommand, expected) in [
+        ("check", "[default: .]"),
+        ("graph", "[default: .]"),
+        ("review", "[default: .]"),
+        (
+            "review-fixtures",
+            "[default: ./15-evaluation/semantic-review]",
+        ),
+    ] {
+        let output = Command::new(&h.intent)
+            .arg(subcommand)
+            .arg("--help")
+            .output()
+            .expect("intent --help");
+        assert!(
+            output.status.success(),
+            "`{subcommand} --help` must succeed"
+        );
+        let help = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            help.contains(expected),
+            "`{subcommand} --help` must advertise its default root as {expected}, \
+             otherwise the documented default and the displayed one can disagree \
+             without anything failing; help:\n{help}"
+        );
+    }
+}
+
 // The corpus-path helpers above cannot reach this: they name `context/vrs` themselves,
 // so they resolve the decision directory no matter how the tool locates it. Aiming
 // `check` at the repository root is what discriminates — and a failure here is silent,

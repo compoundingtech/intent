@@ -13,7 +13,10 @@ name = "intent"
 path = "src/lib.rs"
 
 [dependencies]
-clap = { version = "4.5", features = ["derive", "env"] }
+# `string` carries its weight: the corpus defaults are supplied by the embedding
+# caller at runtime, and without it `default_value` accepts only `&'static` values —
+# which is what forced those defaults out of the command tree and off `--help`.
+clap = { version = "4.5", features = ["derive", "env", "string"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # Runtime, not just tests: `review` stages the diagnostics packet and the CAIC

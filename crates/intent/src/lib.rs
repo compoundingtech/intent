@@ -1,22 +1,22 @@
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeSet, HashSet};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-// Positions INSIDE a corpus, so they hold for any repository that adopts the
-// layout. Resolving the review assets relative to the corpus root rather than the
-// repository root is what keeps tool and corpus co-located: `review` reads both
-// from the filesystem at runtime, so a corpus that moves takes them with it.
 /// The conventional position of a corpus inside a repository. Used only as a probe
 /// when locating a repository root: a tree either has this directory or it does not,
 /// so a repository laid out differently falls through rather than being misread.
 const CORPUS_SENTINEL: &str = "context/vrs";
 
+// Positions INSIDE a corpus, so they hold for any repository that adopts the
+// layout. Resolving the review assets relative to the corpus root rather than the
+// repository root is what keeps tool and corpus co-located: `review` reads both
+// from the filesystem at runtime, so a corpus that moves takes them with it.
 const SEMANTIC_REVIEW_SUBDIR: &str = "15-evaluation/semantic-review";
 const REVIEW_PROMPT_ASSET: &str = "16-enforcement/review-prompt.md";
 const REVIEW_SCHEMA_ASSET: &str = "16-enforcement/review-result.schema.json";
@@ -218,6 +218,38 @@ impl Defaults {
     fn fixtures_or_default(&self, arg: Option<PathBuf>) -> PathBuf {
         arg.unwrap_or_else(|| self.corpus_root.join(SEMANTIC_REVIEW_SUBDIR))
     }
+
+    /// The command tree with these defaults attached to the arguments themselves.
+    ///
+    /// The defaults are caller-supplied, but that is a reason to inject them here
+    /// rather than to stop displaying them: applied after parsing they are invisible
+    /// to `--help` and absent from generated completions, so the documented default
+    /// and the advertised one can disagree without anything failing.
+    pub fn command(&self) -> clap::Command {
+        let root = self.corpus_root.clone().into_os_string();
+        let fixtures = self
+            .corpus_root
+            .join(SEMANTIC_REVIEW_SUBDIR)
+            .into_os_string();
+        VrsCli::command()
+            .mut_subcommand("check", |cmd| default_root(cmd, root.clone()))
+            .mut_subcommand("graph", |cmd| default_root(cmd, root.clone()))
+            .mut_subcommand("review", |cmd| default_root(cmd, root))
+            .mut_subcommand("review-fixtures", |cmd| default_root(cmd, fixtures))
+    }
+
+    /// Parse the process arguments through [`Defaults::command`], so the binary and
+    /// its `--help` are built from one command tree rather than two.
+    pub fn parse(&self) -> VrsCli {
+        match VrsCli::from_arg_matches_mut(&mut self.command().get_matches()) {
+            Ok(cli) => cli,
+            Err(error) => error.exit(),
+        }
+    }
+}
+
+fn default_root(cmd: clap::Command, value: OsString) -> clap::Command {
+    cmd.mut_arg("root", |arg| arg.default_value(value))
 }
 
 impl Default for Defaults {
@@ -2266,6 +2298,34 @@ mod tests {
         assert_eq!(
             standalone.fixtures_or_default(None),
             PathBuf::from("./15-evaluation/semantic-review")
+        );
+    }
+
+    // The embedding host's default has to reach the help IT renders, not just resolve
+    // correctly at run time. Caller-supplied defaults are the reason this was moved out
+    // of the command tree, and losing the displayed metadata was the cost — the point
+    // here is that the two are not actually in tension.
+    #[test]
+    fn a_callers_default_reaches_the_help_it_renders() {
+        let axe = Defaults::corpus_root("context/vrs");
+
+        let check = axe
+            .command()
+            .find_subcommand_mut("check")
+            .expect("check subcommand")
+            .render_help()
+            .to_string();
+        assert!(check.contains("[default: context/vrs]"), "help:\n{check}");
+
+        let fixtures = axe
+            .command()
+            .find_subcommand_mut("review-fixtures")
+            .expect("review-fixtures subcommand")
+            .render_help()
+            .to_string();
+        assert!(
+            fixtures.contains("[default: context/vrs/15-evaluation/semantic-review]"),
+            "help:\n{fixtures}"
         );
     }
 
