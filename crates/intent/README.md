@@ -39,9 +39,16 @@ half.
 
 ## `axe`-flavoured identifiers in an `intent` binary
 
-Rule ids are `AXE.VRS-R01..R19`, `check --json` reports
-`"schema_version": "axe.vrs.check.v1"`, and diagnostics are prefixed
-`axe vrs check:` / `axe vrs review:`. That is not an oversight.
+`check --json` reports `"schema_version": "axe.vrs.check.v1"`, diagnostics are
+prefixed `axe vrs check:` / `axe vrs review:`, and the corpus's own requirement ids
+are `AXE.VRS-R01..R19`. That is not an oversight.
+
+Note the three are different surfaces, and it matters for anyone planning the rename
+below. The `AXE.VRS-R*` ids are **requirement ids in the VRS documents** — this
+binary never emits one. The `rule` field of a diagnostic carries a different
+vocabulary entirely (`VRS.ENF.link.local-target`, `VRS.ENF.delta-shape`, and four
+others). Only `schema_version` and the message prefixes are part of what a consumer
+parses.
 
 This crate was lifted out of `schickling/dotfiles`' `axe` binary, and the acceptance
 bar for the lift is that behaviour is byte-identical to `axe vrs` across every
