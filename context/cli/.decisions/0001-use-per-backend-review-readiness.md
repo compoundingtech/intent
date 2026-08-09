@@ -4,19 +4,19 @@ Status: accepted
 
 ## Context
 
-`axe vrs review` can run through multiple stock CAIC backends. Manual
+`intent review` can run through multiple stock CAIC backends. Manual
 real-provider evals showed uneven provider state: `codex` produced a
-schema-valid VRS review report for `context/vrs/16-enforcement`, while `claude`
+schema-valid Intent review report for `context/intent/16-enforcement`, while `claude`
 still needs an authenticated isolated real-provider report after fixing its
 wrapper-level command mapping.
 
-The design question was whether one provider gap should keep the whole `axe vrs
+The design question was whether one provider gap should keep the whole `intent
 review` surface marked not production-ready.
 
 ## Evidence and Argument
 
 CAIC already exposes explicit backend ids and reports the effective backend in
-result metadata. `axe vrs review` now preflights the selected backend through
+result metadata. `intent review` now preflights the selected backend through
 `$CODING_AGENT capabilities --json` before provider invocation, so readiness can
 be evaluated against the same contract for each backend.
 
@@ -35,14 +35,14 @@ backend on an unrelated provider authentication/eval gap.
 
 ## Decision
 
-`axe vrs review` production readiness is backend-scoped.
+`intent review` production readiness is backend-scoped.
 
 A backend is ready when:
 
 - its CAIC capability preflight satisfies the review contract;
 - token-free fake-provider tests cover its provider-specific command mapping;
-- at least one bounded manual real-provider run against a small existing VRS
-  subsystem writes a schema-valid `axe.vrs.review.v1` report.
+- at least one bounded manual real-provider run against a small existing Intent
+  subsystem writes a schema-valid `axe.intent.review.v1` report.
 
 ## Consequences
 

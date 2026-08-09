@@ -3,6 +3,9 @@
 # otherwise, since the crate is a standalone package with no workspace root.
 target/
 
+# Local scratch artifacts and render intermediates.
+/tmp/
+
 # Artifacts the CI steps write into the checkout root while running.
 /report.json
 /graph.json

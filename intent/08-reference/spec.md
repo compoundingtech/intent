@@ -1,4 +1,4 @@
-# VRS Reference — Spec
+# Intent Reference — Spec
 
 This document specifies `.reference/` directories. It builds on
 [requirements.md](./requirements.md).
@@ -24,12 +24,12 @@ Captured: <date, when freshness matters>
 
 ## Relevant Facts
 
-## VRS Impact
+## Intent Impact
 ```
 
 Use references for third-party API details, standards, external feature specs,
 or source snapshots. Avoid copying large external documents; capture the facts
-the VRS depends on and link to the source.
+the Intent depends on and link to the source.
 
 When a `requirements.md` constraint depends on external behavior, cite the
 reference from the constraint:

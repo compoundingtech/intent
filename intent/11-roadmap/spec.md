@@ -1,4 +1,4 @@
-# VRS Roadmap — Spec
+# Intent Roadmap — Spec
 
 This document specifies optional `roadmap.md` files. It builds on
 [requirements.md](./requirements.md).
@@ -19,9 +19,9 @@ promoted into requirements, spec, or a decision record.
 
 - **<Short name>:** <future direction and why it is worth preserving>
   - Trigger: <what would make this current>
-  - Promotion target: requirements | spec | decision | child VRS
+  - Promotion target: requirements | spec | decision | child Intent
 ```
 
 Use roadmap for ideas that are concrete enough to preserve but too far out to
-belong in the current contract. Review roadmap entries before major VRS updates
+belong in the current contract. Review roadmap entries before major Intent updates
 and delete entries that are no longer relevant.

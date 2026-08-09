@@ -4,25 +4,25 @@ Status: accepted
 
 ## Context
 
-The VRS enforcement spec originally included a consumer table that named
-`axe vrs`, Nix checks, `grill-vrs`, and future `axe plan` behavior. A real
-`codex` semantic review of `context/vrs/16-enforcement` flagged this as a
+The Intent enforcement spec originally included a consumer table that named
+`intent`, Nix checks, `grill-intent`, and future `axe plan` behavior. A real
+`codex` semantic review of `intent/16-enforcement` flagged this as a
 semantic-ownership smell: enforcement was starting to assign command-surface and
 workflow behavior that should be owned by the consuming subsystems.
 
 The user chose a strict ownership split: enforcement should define checks,
 severity, evidence, semantic review assets, and reusable interfaces only; Axe
-VRS and other consumers should own their command surfaces and provider
+Intent and other consumers should own their command surfaces and provider
 invocation details.
 
 ## Evidence and Argument
 
 The ownership issue was found by a bounded manual real-provider run of
-`axe vrs review context/vrs/16-enforcement --backend codex` after the initial
+`intent review intent/16-enforcement --backend codex` after the initial
 ownership cleanup. The review succeeded but still reported
-`VRS.REVIEW.semantic-ownership` against the enforcement spec's consumer table.
+`INTENT.REVIEW.semantic-ownership` against the enforcement spec's consumer table.
 
-The existing Axe VRS spec already owns CLI behavior, provider-readiness checks,
+The existing Intent CLI spec already owns CLI behavior, provider-readiness checks,
 stdout/report routing, and CI token-spend guards. Keeping consumer behavior in
 the enforcement spec duplicates that contract and creates drift risk. A
 consumer-agnostic enforcement contract also composes better with future
@@ -39,7 +39,7 @@ Axe-specific workflow semantics.
 
 ## Decision
 
-VRS enforcement is consumer-agnostic.
+Intent enforcement is consumer-agnostic.
 
 The enforcement spec defines:
 
@@ -50,13 +50,13 @@ The enforcement spec defines:
 - reusable checker/review interfaces.
 
 Consumer specs define their own command surfaces, invocation policies, storage,
-report routing, and exit-code behavior. In particular, the Axe VRS spec owns
-`axe vrs` commands and provider execution policy.
+report routing, and exit-code behavior. In particular, the Intent CLI spec owns
+`intent` commands and provider execution policy.
 
 ## Consequences
 
 - Enforcement no longer enumerates concrete consumer command behavior.
-- Semantic-review findings about VRS ownership should route command-surface
-  details to the relevant consumer VRS instead of `context/vrs/16-enforcement`.
+- Semantic-review findings about Intent ownership should route command-surface
+  details to the relevant consumer Intent instead of `intent/16-enforcement`.
 - Future consumers can reuse enforcement outputs without becoming part of the
   enforcement contract.

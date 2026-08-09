@@ -4,17 +4,17 @@ Status: accepted
 
 ## Context
 
-Decision 0028 established that real provider/model-token VRS evals are
+Decision 0028 established that real provider/model-token Intent evals are
 manual-only and must not run from CI, Nix checks, hooks, scheduled jobs, or
 default automated validation.
 
-The remaining question is whether `axe vrs review` also needs an extra
+The remaining question is whether `intent review` also needs an extra
 invocation flag such as `--manual`, `--spend-tokens`, or `--allow-token-spend`
 to prove consent before calling a real provider.
 
 ## Evidence and Argument
 
-`axe vrs review` is itself an explicit operator command. Requiring an additional
+`intent review` is itself an explicit operator command. Requiring an additional
 flag makes the command more ceremonious without adding a stronger automation
 boundary. The actual safety property is that automated environments must not
 invoke a real provider. That is enforced by refusing CI and other known
@@ -36,7 +36,7 @@ the command surface should stay simple.
 
 ## Decision
 
-`axe vrs review` does not require an extra token-spend or manual-confirmation
+`intent review` does not require an extra token-spend or manual-confirmation
 flag.
 
 The command must fail before provider invocation when it detects CI or another

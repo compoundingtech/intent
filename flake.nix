@@ -1,5 +1,5 @@
 {
-  description = "intent - deterministic checks, graph extraction and semantic review for a VRS corpus";
+  description = "intent - deterministic checks, graph extraction and semantic review for an Intent corpus";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -58,7 +58,7 @@
           # version.
 
           meta = {
-            description = "Deterministic checks, graph extraction and semantic review for a VRS corpus";
+            description = "Deterministic checks, graph extraction and semantic review for an Intent corpus";
             homepage = "https://github.com/compoundingtech/intent";
             mainProgram = "intent";
           };

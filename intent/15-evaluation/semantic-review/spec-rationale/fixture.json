@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.fixture.v1",
+  "schema_version": "intent.semantic-review.fixture.v1",
   "id": "spec-rationale",
   "purpose": "Detect decision rationale embedded in spec.",
-  "covers": ["VRS.REVIEW.spec.rationale"],
+  "covers": ["INTENT.REVIEW.spec.rationale"],
   "prompt_ref": "../../../16-enforcement/review-prompt.md",
   "schema_ref": "../../../16-enforcement/review-result.schema.json",
   "assertion_mode": "minimum",

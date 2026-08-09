@@ -1,6 +1,6 @@
-# VRS Decisions — Spec
+# Intent Decisions — Spec
 
-This document specifies VRS decision records. It builds on
+This document specifies Intent decision records. It builds on
 [requirements.md](./requirements.md).
 
 ## Status
@@ -43,7 +43,7 @@ independent forms when the decision is important or risky.
 
 ## Decision
 
-Chosen option and why it is best under the current VRS context and constraints.
+Chosen option and why it is best under the current Intent context and constraints.
 ```
 
 Statuses are `accepted`, `deprecated`, or `superseded by <id>`. Add

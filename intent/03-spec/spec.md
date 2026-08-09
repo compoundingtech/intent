@@ -1,4 +1,4 @@
-# VRS Spec — Spec
+# Intent Spec — Spec
 
 This document specifies `spec.md` files. It builds on
 [requirements.md](./requirements.md).

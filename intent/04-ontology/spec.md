@@ -1,4 +1,4 @@
-# VRS Ontology — Spec
+# Intent Ontology — Spec
 
 This document specifies `ontology.md` files. It builds on
 [requirements.md](./requirements.md).
@@ -36,5 +36,5 @@ within this file, as a child narrowing a parent term, or as a cross-node
 homograph (the same word owned by another ontology).
 
 Inheritance flows downward, along concept-scheme boundaries: a child ontology
-names the parent it inherits (VRS.ONT-R08) and defines only new terms, new
+names the parent it inherits (INTENT.ONT-R08) and defines only new terms, new
 structure, or local ambiguity; it does not restate the parent.

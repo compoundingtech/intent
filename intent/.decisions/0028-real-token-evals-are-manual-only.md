@@ -53,5 +53,5 @@ Automated checks may validate:
 
 - Real semantic-review quality checks remain available but intentional.
 - CI and Nix checks stay deterministic and token-free.
-- Future `axe vrs review` or `axe vrs review-fixtures` commands must fail or
+- Future `intent review` or `intent review-fixtures` commands must fail or
   refuse when invoked as automatic gates with real providers.

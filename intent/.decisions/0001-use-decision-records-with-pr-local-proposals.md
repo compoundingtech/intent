@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-VRS needs a durable log for consequential choices, but those choices are not
+Intent needs a durable log for consequential choices, but those choices are not
 limited to architecture. Agents also need a branch-local way to keep working
 through unresolved decisions without letting tentative records merge to main.
 
@@ -13,7 +13,7 @@ through unresolved decisions without letting tentative records merge to main.
 The repo already uses `decisions/` and `.decisions/` widely for non-architecture
 choices. The user's Notion notes asked about `.adr`, proposed records for
 autonomous mode, and whether ADR is general enough. ADR practice is recognizable
-but usually architecture-framed; VRS explicitly covers product, operational,
+but usually architecture-framed; Intent explicitly covers product, operational,
 data, interface, validation, and design choices too.
 
 ## Options
@@ -29,4 +29,4 @@ data, interface, validation, and design choices too.
 Use **Decision Record** as the canonical term and store durable records under
 `.decisions/000N-<slug>.md`. Proposed records may live under
 `.decisions/.proposed/` while a PR is open, but must be accepted, folded into
-another VRS artifact, deferred to `open-questions.md`, or deleted before merge.
+another Intent artifact, deferred to `open-questions.md`, or deleted before merge.

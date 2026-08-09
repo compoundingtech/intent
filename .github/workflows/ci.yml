@@ -29,12 +29,26 @@ jobs:
       - run: cargo build --locked --manifest-path crates/intent/Cargo.toml
       - run: cargo test --locked --manifest-path crates/intent/Cargo.toml
 
-  # Port of dotfiles' `axe-vrs-context-strict`.
+  # Strict validation of the repository's Intent corpus.
   corpus-strict:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        # `crates/intent` is a standalone package with no workspace root, so cargo
+
+      - name: retired name is absent
+        run: |
+          set -euo pipefail
+          retired="$(printf '\166\162\163')"
+          if git grep -I -n -i "$retired" -- .; then
+            echo "::error::retired name found in tracked content"
+            exit 1
+          fi
+          if git ls-files | grep -i "$retired"; then
+            echo "::error::retired name found in a tracked path"
+            exit 1
+          fi
+
+      # `crates/intent` is a standalone package with no workspace root, so cargo
         # writes to `crates/intent/target/` and the steps below would not find the
         # binary at `./target/`. `--target-dir` pins the output next to the checkout
         # root regardless of whether a workspace root ever appears above the crate.
@@ -42,7 +56,7 @@ jobs:
 
       - name: corpus is present
         # `intent check` exits 0 on an empty directory and on a directory holding no
-        # VRS artifacts, so "the check passed" cannot by itself distinguish a healthy
+        # Intent artifacts, so "the check passed" cannot by itself distinguish a healthy
         # corpus from a missing one. Fail on absence explicitly, before checking.
         run: |
           set -euo pipefail
@@ -55,7 +69,7 @@ jobs:
             cat report.json >&2; exit 1;
           }
           jq -e '
-            .schema_version == "axe.vrs.check.v1"
+            .schema_version == "axe.intent.check.v1"
             and .profile == "strict"
             and (.diagnostics | length) == 0
           ' report.json > /dev/null
@@ -73,7 +87,7 @@ jobs:
           jq -e '(.nodes | length) > 0' graph.json > /dev/null \
             || { echo "::error::strict check examined 0 artifacts — wrong path or empty corpus"; exit 1; }
 
-  # Port of dotfiles' `vrs-semantic-review-fixtures`.
+  # Validate the semantic-review fixture corpus and enforcement schema.
   semantic-review-fixtures:
     runs-on: ubuntu-latest
     steps:

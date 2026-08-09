@@ -5,7 +5,7 @@ Status: accepted
 ## Context
 
 The first semantic-review fixtures now exist under
-`context/vrs/15-evaluation/semantic-review/`, but `axe vrs review` is not yet a
+`intent/15-evaluation/semantic-review/`, but `intent review` is not yet a
 production command. The next question is how to validate those fixtures before a
 real LLM-backed review runner exists.
 
@@ -15,14 +15,14 @@ eval, a real-provider eval, or no runner until review lands.
 ## Evidence and Argument
 
 The fixtures already contain structured machine-readable inputs: `fixture.json`
-manifests, expected `axe.vrs.review.v1` results, fixture-relative artifact
+manifests, expected `axe.intent.review.v1` results, fixture-relative artifact
 paths, and references to the baked prompt and schema. Those properties can be
 validated without invoking a coding agent.
 
 CAIC fake-provider evals prove invocation wiring but not semantic-review
 quality. Real-provider evals provide higher signal about prompt behavior, but
 they are slower and more variable than a local structural check. Waiting for
-`axe vrs review` would leave the fixture corpus able to drift before it has a
+`intent review` would leave the fixture corpus able to drift before it has a
 basic contract gate.
 
 ## Options
@@ -47,7 +47,7 @@ diagnostic markers when diagnostics are present. It does not call
 ## Consequences
 
 - Fixture drift is caught before semantic review exists.
-- Real-provider semantic evals remain a later layer after `axe vrs review` has
+- Real-provider semantic evals remain a later layer after `intent review` has
   stable diagnostics and invocation wiring.
 - The deterministic checker can become a CI/Nix gate without introducing LLM
   flakiness.

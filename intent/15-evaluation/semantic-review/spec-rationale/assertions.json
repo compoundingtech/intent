@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.assertions.v1",
+  "schema_version": "intent.semantic-review.assertions.v1",
   "minimum_findings": [
     {
-      "rule": "VRS.REVIEW.spec.rationale",
+      "rule": "INTENT.REVIEW.spec.rationale",
       "severity": "warning",
       "artifact": "input/context/spec-rationale/spec.md",
       "owner": "spec.md"

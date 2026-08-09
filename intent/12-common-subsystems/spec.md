@@ -1,6 +1,6 @@
-# VRS Common Subsystems — Spec
+# Intent Common Subsystems — Spec
 
-This document specifies common subsystem candidates in VRS trees. It builds on
+This document specifies common subsystem candidates in Intent trees. It builds on
 [requirements.md](./requirements.md).
 
 ## Status
@@ -12,7 +12,7 @@ Draft.
 Common subsystem nodes use normal numeric child-node naming:
 
 ```text
-<vrs-node>/
+<intent-node>/
   01-data-model/
     requirements.md
     spec.md

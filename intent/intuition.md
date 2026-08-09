@@ -1,11 +1,11 @@
-# VRS — Intuition
+# Intent — Intuition
 
 *For: agents and maintainers shaping durable system docs · Assumes: Markdown
-docs live beside code or under `context/` · Covers: the mental model for VRS as
+docs live beside code or under `context/` · Covers: the mental model for Intent as
 a self-describing documentation system*
 
-VRS is a compact contract for keeping design knowledge current without turning
-docs into plans, changelogs, or essays. A VRS tree separates durable intent from
+Intent is a compact contract for keeping design knowledge current without turning
+docs into plans, changelogs, or essays. An Intent tree separates durable intent from
 implementation detail:
 
 ```text
@@ -22,24 +22,24 @@ open-questions.md unresolved design uncertainty
 roadmap.md        non-committed future direction
 ```
 
-Not every VRS node has every file. Files and companion directories are lazy:
+Not every Intent node has every file. Files and companion directories are lazy:
 create them when there is real content, not to satisfy a template.
 
-The narrative entry point for a VRS node is `intuition.md`, not `README.md`.
+The narrative entry point for an Intent node is `intuition.md`, not `README.md`.
 It builds the reader's mental model and may include the system map; it is part
-of the VRS language rather than a generic repository convention. In directory
+of the Intent language rather than a generic repository convention. In directory
 shape, it follows the formal `vision.md`/`requirements.md`/`spec.md` chain and
 `ontology.md`.
 
-VRS is hierarchical. A root VRS defines the system-level contract; child VRS
+Intent is hierarchical. A root Intent defines the system-level contract; child Intent
 nodes refine one file kind, subsystem, mechanism, or concept when the parent
-would otherwise become too large or ambiguous. The meta-VRS uses this recursively:
+would otherwise become too large or ambiguous. The root Intent contract uses this recursively:
 Vision, Requirements, Spec, Ontology, Decision Records, Experiments, Reference,
-Delta, Open Questions, and Roadmap each deserve their own child VRS when their
+Delta, Open Questions, and Roadmap each deserve their own child Intent when their
 contract needs more detail than the root can carry cleanly.
 
 Decision records are durable. Proposed decisions are allowed during a PR so an
 agent can continue working without blocking on every unresolved design choice,
 but proposed records are PR-local scaffolding. Before merge, each proposed
-decision is accepted into `.decisions/`, folded into the relevant VRS document,
+decision is accepted into `.decisions/`, folded into the relevant Intent document,
 or deleted.

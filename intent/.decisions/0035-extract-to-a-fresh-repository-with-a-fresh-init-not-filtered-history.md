@@ -8,11 +8,11 @@ This corpus was authored inside `schickling/dotfiles`, a private repository, and
 now lives in `compoundingtech/intent`, which is destined to become public. The
 extraction moved two things at once:
 
-- `context/vrs/` (106 files) became this repository's `intent/`, verbatim, with
-  section names and internal layout unchanged.
-- `context/coding-agents/14-axe/12-vrs/` (5 files) became `context/cli/` — the
-  contract for the checker that enforces this corpus, which is a consumer of the
-  methodology rather than part of it, and so sits outside `intent/`.
+- The originating corpus subtree (106 files) became this repository's `intent/`,
+  with section names and internal layout unchanged.
+- The originating Axe checker contract (5 files) became `context/cli/`. It is a
+  consumer of the methodology rather than part of it, so it sits outside
+  `intent/`.
 
 Both were taken from `schickling/dotfiles` at commit
 `1b246bed551e520975e06ccdbb998f72ec8a5d9d`.
@@ -28,9 +28,9 @@ The history that would have been carried over, measured against the source commi
 
 | What | Path set | Commits |
 | --- | --- | --- |
-| The corpus | `context/vrs` | 57 |
-| The corpus plus the checker source | `context/vrs`, `flakes/axe/src/vrs.rs` | 64 |
-| The CLI subsystem contract | `context/coding-agents/14-axe/12-vrs` | 24 |
+| The corpus | Originating corpus subtree | 57 |
+| The corpus plus the checker source | Corpus subtree and checker source | 64 |
+| The CLI subsystem contract | Originating Axe checker subtree | 24 |
 
 Those spans run **2026-06-18 to 2026-07-30** by committer date. Author dates begin
 one day earlier, 2026-06-17 — the first two corpus commits were authored that
@@ -74,14 +74,15 @@ Concretely, and for the record:
 
 - **Origin:** `schickling/dotfiles`, private.
 - **Source commit:** `1b246bed551e520975e06ccdbb998f72ec8a5d9d`.
-- **Corpus history at that commit:** 57 commits touching `context/vrs`, or 64
+- **Corpus history at that commit:** 57 commits touching the originating corpus
+  subtree, or 64
   counting the checker source alongside it, spanning 2026-06-18 to 2026-07-30 by
   committer date.
 - **Full history remains in `schickling/dotfiles`** and is available there to
   anyone with access to that repository. It was not rewritten, and nothing was
   discarded — only not copied.
-- **`context/coding-agents/14-axe/12-vrs/` moved in the same extraction**, to
-  `context/cli/`, and its own 24 commits are covered by the same reasoning.
+- **The Axe checker contract moved in the same extraction** to `context/cli/`,
+  and its own 24 commits are covered by the same reasoning.
 
 ## Consequences
 
@@ -99,13 +100,13 @@ Two consequences of the move itself are recorded here because they are otherwise
 invisible in the result:
 
 **The CLI subsystem lost its parent edge.** In the originating repository,
-`14-axe/12-vrs/requirements.md` built on `14-axe/requirements.md`, the contract of
-the host tool it was a subsystem of. That parent did not move and does not exist
-here, so the edge was removed rather than rewritten to prose. Keeping any form of
-it would have asserted a relationship that is no longer true while making it
-unverifiable — the precise failure this corpus exists to prevent. `context/cli/`
-is a root node in this repository. If it should later refine something here, that
-is a deliberate authoring decision to be taken on its own merits.
+the checker contract built on the contract of its host tool. That parent did not
+move and does not exist here, so the edge was removed rather than rewritten to
+prose. Keeping any form of it would have asserted a relationship that is no
+longer true while making it unverifiable — the precise failure this corpus
+exists to prevent. `context/cli/` is a root node in this repository. If it should
+later refine something here, that is a deliberate authoring decision to be taken
+on its own merits.
 
 **Six citations that pointed outside the corpus were rewritten.** They named
 records in `context/coding-agents/` and `context/observability/` that remain

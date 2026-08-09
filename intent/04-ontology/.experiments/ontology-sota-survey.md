@@ -40,12 +40,12 @@ the last:
 
 | Level | Adds | Our equivalent |
 | --- | --- | --- |
-| **Controlled vocabulary** | one authorized term per concept | `## Language` list + `VRS.ONT-R01` canonical term |
+| **Controlled vocabulary** | one authorized term per concept | `## Language` list + `INTENT.ONT-R01` canonical term |
 | **Taxonomy** | hierarchy (broader/narrower) | `## Structure` with hierarchy |
 | **Thesaurus** | associative (`related`) + synonyms (`altLabel`) | `related` edges + `_Avoid_` / alt labels |
 | **Ontology** | typed, specialized relations + formal semantics | #1180 typed edges (`isa`/`partOf`/`dependsOn`/…) |
 
-This ladder is exactly our "lazy structure" rule (`VRS.ONT-R06`): a flat glossary
+This ladder is exactly our "lazy structure" rule (`INTENT.ONT-R06`): a flat glossary
 is a controlled vocabulary; you climb only when a relationship carries weight.
 **Adopt this as the one-line backbone** for the artifact's levels — it gives
 "minimal ontology = flat term list" a recognized name (controlled vocabulary) and
@@ -65,7 +65,7 @@ them):
   `narrowMatch`, `relatedMatch`, `closeMatch`, `exactMatch`.
 
 Key mappings and one deliberate divergence:
-- `prefLabel` == our canonical term (`VRS.ONT-R01`).
+- `prefLabel` == our canonical term (`INTENT.ONT-R01`).
 - `altLabel` == our true synonyms; `avoid` ≈ `hiddenLabel` **(loose** —
   hiddenLabel means "match on it but don't show it"; ours means "don't use it").
 - `related` == our "orthogonal / see-also" associative link.
@@ -121,7 +121,7 @@ introduce upper-ontology vocabulary. (Sources: BFO/Wikipedia, Barry Smith.)
 ### DDD ubiquitous language / bounded contexts — the *why* of a per-subsystem ontology
 Evans: one shared, consistent vocabulary **within an explicitly bounded
 context**; outside it, the same word may mean something else. This is precisely
-our per-subsystem `ontology.md` + the VRS `## Flagged ambiguities` mechanism for
+our per-subsystem `ontology.md` + the Intent `## Flagged ambiguities` mechanism for
 a child that narrows a parent term. It's the strongest existing-practice
 justification for *scoping* ontologies to subsystems rather than one global
 glossary. Maps to SKOS **concept scheme** boundaries (below). (Sources: Evans;
@@ -152,7 +152,7 @@ hygiene; these guidelines add nothing Claude doesn't know — **cite-don't-teach
 ("what identifier shape does this imply?"). #1180's edges are *checkable SoT
 relations*. They are **not competitors** — the naming-relevant edges are a
 **subset** of the full typed-edge set. So we want ONE set of edge *names* shared
-across skill + VRS + #1180, with a marked subset that shapes names. This closes a
+across skill + Intent + #1180, with a marked subset that shapes names. This closes a
 **bidirectional gap**: the skill's `orthogonal` has no #1180 edge, and #1180's
 `dependsOn`/`related` have no lens in the skill's five.
 
@@ -161,7 +161,7 @@ Two tiers, mirroring SKOS (labels vs semantic relations):
 ### Tier A — lexical labels (point at strings)
 | Our term | SKOS | #1180 | Notes |
 | --- | --- | --- | --- |
-| canonical term | `prefLabel` | `label` / `prefLabel` | one per concept (`VRS.ONT-R01`) |
+| canonical term | `prefLabel` | `label` / `prefLabel` | one per concept (`INTENT.ONT-R01`) |
 | synonym / alt | `altLabel` | `altLabel` | true interchangeable names |
 | `_Avoid_` | `hiddenLabel` *(loose)* | `avoid` | ours = "don't use"; hiddenLabel = "match, don't show" |
 
@@ -178,7 +178,7 @@ Two tiers, mirroring SKOS (labels vs semantic relations):
 | *(no lens)* — associative "see also" | `related` | object property | `related` | No |
 | *(no lens)* — spec specialization | `narrower` (weak) | `subPropertyOf` | `refines` | Maybe — a narrowing, ≈ `isa` flavor |
 
-### Recommended ONE edge vocabulary (standardize across skill + VRS + #1180)
+### Recommended ONE edge vocabulary (standardize across skill + Intent + #1180)
 Adopt #1180's typed-edge nouns as the canonical set; they already mirror
 SKOS/OWL and are the machine-checkable SoT everything else projects from:
 
@@ -214,9 +214,9 @@ layers}. Those are what `/sk-ontology` reasons about to shape identifiers;
 - Cross-scheme identity: prefer in-scheme `altLabel` over `exactMatch`/`sameAs`
   merges (`owl:sameAs` hazard).
 
-**VRS inheritance backing:** #1180's cross-file import ("inherited from
+**Intent inheritance backing:** #1180's cross-file import ("inherited from
 `../glossary.md`") == SKOS **`inScheme` + concept-scheme boundaries**. That's the
-SOTA backing for the VRS spec's "inheritance flows downward; a child defines only
+SOTA backing for the Intent spec's "inheritance flows downward; a child defines only
 new terms/structure/ambiguity." Worth one line in the contract.
 
 ---
@@ -229,8 +229,8 @@ report may explain SKOS fully; skill additions must be house-specific and cheap.
 ### The one fork that matters — how to unify the edge vocabulary
 | Option | What | Trade-off | Token bar |
 | --- | --- | --- | --- |
-| **3A — rename the five to edge-names now** | `/sk-ontology` + VRS `04-ontology` adopt `isa/partOf/refines/dependsOn/related` (+ `altLabel`/`avoid`), mark naming-relevant subset, drop `set`, rename `orthogonal`→facet | No drift; but churns two skills + VRS contract and formalizes an edge set *ahead of* the tooling that enforces it (#1180) | **Passes** — the shared vocabulary is house-specific and prevents drift; keep the SKOS/OWL rationale as a one-line pointer, don't teach it |
-| **3B — keep the five as lenses now; align names only when #1180 lands** | Fix only the clear bugs now (`set` split, leitwort attribution, "facet"); defer full edge-name unification to when the typed SoT exists | No premature churn; but skill/VRS/#1180 drift in the meantime (the exact risk the task flags) | Passes; minimal edits |
+| **3A — rename the five to edge-names now** | `/sk-ontology` + Intent `04-ontology` adopt `isa/partOf/refines/dependsOn/related` (+ `altLabel`/`avoid`), mark naming-relevant subset, drop `set`, rename `orthogonal`→facet | No drift; but churns two skills + Intent contract and formalizes an edge set *ahead of* the tooling that enforces it (#1180) | **Passes** — the shared vocabulary is house-specific and prevents drift; keep the SKOS/OWL rationale as a one-line pointer, don't teach it |
+| **3B — keep the five as lenses now; align names only when #1180 lands** | Fix only the clear bugs now (`set` split, leitwort attribution, "facet"); defer full edge-name unification to when the typed SoT exists | No premature churn; but skill/Intent/#1180 drift in the meantime (the exact risk the task flags) | Passes; minimal edits |
 | **3C — minimal: add mapping table as reference, change nothing structural** | Paste the Tier-A/Tier-B mapping into the skill as a "lineage" aside | Cheapest; but a table the skill doesn't act on is frozen state → violates write-skill "no frozen state" | **Fails** the token bar — don't do 3C |
 
 **Recommendation: 3A for the edge *names* + 3B's bug-fixes**, i.e. unify the
@@ -262,8 +262,8 @@ Cite-don't-teach: SKOS/OWL/DDD get pointer mentions only.
   coupling between independent dimensions").
 Everything else here **fails** the bar (Claude knows naming conventions).
 
-### VRS `04-ontology` contract — specific edits
-- Rename the relationship enumeration in `VRS.ONT-R06` to the unified vocabulary
+### Intent `04-ontology` contract — specific edits
+- Rename the relationship enumeration in `INTENT.ONT-R06` to the unified vocabulary
   (keep it a *may*, keep lazy-structure).
 - Add one line: downward inheritance == SKOS `inScheme` / concept-scheme
   boundaries (SOTA backing for the existing rule).
@@ -275,7 +275,7 @@ freshness — these are the epic's job, not the prose contract.
 
 ## 4. Where our current skills are wrong / redundant / misaligned
 
-1. **`set` conflates subset and membership** (`/sk-ontology`, VRS `VRS.ONT-R06`).
+1. **`set` conflates subset and membership** (`/sk-ontology`, Intent `INTENT.ONT-R06`).
    Subset ⊆ is subsumption (redundant with `hierarchy`/`isa`); membership ∈ is a
    distinct collection relation. SKOS/OWL keep these separate. **Fix:** drop
    "set"; fold subset into `isa`, name membership explicitly.
@@ -285,7 +285,7 @@ freshness — these are the epic's job, not the prose contract.
 3. **"orthogonal" under-names a known concept.** It's **faceting** (Ranganathan;
    schema.org multi-domain). Borrow "facet" — the skill's own doctrine is "borrow
    the established word over inventing one," which it violates here.
-4. **Vocabulary drift risk is real and current:** skill+VRS say
+4. **Vocabulary drift risk is real and current:** skill+Intent say
    {hierarchy/composition/orthogonal/set/layers}; #1180 says
    {isa/partOf/dependsOn/refines/altLabel/avoid}(+related). Two vocabularies for
    overlapping concepts, already diverging. This survey's core deliverable is to
@@ -303,9 +303,9 @@ freshness — these are the epic's job, not the prose contract.
 Unify the edge names and fix the ambiguous naming lenses now, while deferring
 typed storage, resolution, and freshness machinery to `#1180`.
 
-## VRS Impact
+## Intent Impact
 
-The result is reflected in `VRS.ONT-R06`: the ontology contract uses the shared
+The result is reflected in `INTENT.ONT-R06`: the ontology contract uses the shared
 edge vocabulary, preserves the is-a/part-of distinction, and keeps structure
 lazy. The survey remains evidence rather than a second normative contract.
 

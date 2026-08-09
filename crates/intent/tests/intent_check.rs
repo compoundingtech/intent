@@ -1,4 +1,4 @@
-//! Integration tests ported from `flakes/axe/tests/vrs_check.rs` in
+//! Integration tests ported from `flakes/axe/tests/intent_check.rs` in
 //! `schickling/dotfiles`, where the suite stayed behind when the checker was lifted
 //! into this crate. They drive the built `intent` binary end to end and are the
 //! differential oracle for the extraction.
@@ -55,22 +55,22 @@ impl Harness {
     fn new() -> Self {
         let tempdir = tempfile::tempdir().expect("tempdir");
         let repo = tempdir.path().join("repo");
-        fs::create_dir_all(repo.join("context/vrs/.decisions")).expect("repo");
-        fs::create_dir_all(repo.join("context/vrs/16-enforcement")).expect("enforcement");
-        fs::write(repo.join("context/vrs/spec.md"), "# Spec\n").expect("spec");
+        fs::create_dir_all(repo.join("context/intent/.decisions")).expect("repo");
+        fs::create_dir_all(repo.join("context/intent/16-enforcement")).expect("enforcement");
+        fs::write(repo.join("context/intent/spec.md"), "# Spec\n").expect("spec");
         fs::write(
-            repo.join("context/vrs/16-enforcement/review-prompt.md"),
-            "Return a schema-valid fake VRS review result.",
+            repo.join("context/intent/16-enforcement/review-prompt.md"),
+            "Return a schema-valid fake Intent review result.",
         )
         .expect("review prompt");
         fs::write(
-            repo.join("context/vrs/16-enforcement/review-result.schema.json"),
+            repo.join("context/intent/16-enforcement/review-result.schema.json"),
             r#"{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "required": ["schema_version", "summary", "findings"],
   "properties": {
-    "schema_version": { "const": "axe.vrs.review.v1" },
+    "schema_version": { "const": "axe.intent.review.v1" },
     "summary": { "type": "string" },
     "findings": { "type": "array" }
   },
@@ -80,7 +80,7 @@ impl Harness {
         )
         .expect("review schema");
         fs::write(
-            repo.join("context/vrs/.decisions/0001-good.md"),
+            repo.join("context/intent/.decisions/0001-good.md"),
             r#"# Good Decision
 
 Status: accepted
@@ -118,7 +118,7 @@ Choose A because it fits the current scope.
     fn check(&self, args: &[&str]) -> Output {
         Command::new(&self.intent)
             .arg("check")
-            .arg(self.repo.join("context/vrs"))
+            .arg(self.repo.join("context/intent"))
             .args(args)
             .output()
             .expect("intent check")
@@ -127,7 +127,7 @@ Choose A because it fits the current scope.
     fn graph(&self, args: &[&str]) -> Output {
         Command::new(&self.intent)
             .arg("graph")
-            .arg(self.repo.join("context/vrs"))
+            .arg(self.repo.join("context/intent"))
             .args(args)
             .output()
             .expect("intent graph")
@@ -169,12 +169,12 @@ fn bash_path() -> PathBuf {
 fn graph_json_exposes_files_ids_links_and_wikilinks() {
     let h = Harness::new();
     fs::write(
-        h.repo.join("context/vrs/requirements.md"),
-        "# Requirements\n\n- **AXE.VRS-R08 Graph command:** emit graph JSON; refines: VRS-R27.\n",
+        h.repo.join("context/intent/requirements.md"),
+        "# Requirements\n\n- **AXE.INTENT-R08 Graph command:** emit graph JSON; refines: INTENT-R27.\n",
     )
     .expect("requirements");
     fs::write(
-        h.repo.join("context/vrs/spec.md"),
+        h.repo.join("context/intent/spec.md"),
         "# Spec\n\nSee [requirements](./requirements.md) and [[Graph Backlog|graph work]].\n\n```text\n[[IgnoredInFence]]\n```\n",
     )
     .expect("spec");
@@ -187,21 +187,21 @@ fn graph_json_exposes_files_ids_links_and_wikilinks() {
         String::from_utf8_lossy(&output.stderr)
     );
     let graph = stdout_json(&output);
-    assert_eq!(graph["schema_version"], "axe.vrs.graph.v0");
+    assert_eq!(graph["schema_version"], "axe.intent.graph.v0");
 
     let nodes = graph["nodes"].as_array().unwrap();
     assert!(nodes
         .iter()
         .any(|node| { node["id"] == "file:requirements.md" && node["kind"] == "file" }));
     assert!(nodes.iter().any(|node| {
-        node["id"] == "AXE.VRS-R08"
+        node["id"] == "AXE.INTENT-R08"
             && node["kind"] == "requirement"
             && node["title"] == "Graph command"
             && node["refines"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|id| id == "VRS-R27")
+                .any(|id| id == "INTENT-R27")
     }));
     assert!(nodes
         .iter()
@@ -214,7 +214,7 @@ fn graph_json_exposes_files_ids_links_and_wikilinks() {
     let edges = graph["edges"].as_array().unwrap();
     assert!(edges.iter().any(|edge| {
         edge["source"] == "file:requirements.md"
-            && edge["target"] == "AXE.VRS-R08"
+            && edge["target"] == "AXE.INTENT-R08"
             && edge["kind"] == "contains"
     }));
     assert!(edges.iter().any(|edge| {
@@ -230,7 +230,7 @@ fn graph_json_exposes_files_ids_links_and_wikilinks() {
 }
 
 #[test]
-fn valid_minimal_vrs_tree_passes_json_check() {
+fn valid_minimal_intent_tree_passes_json_check() {
     let h = Harness::new();
 
     let output = h.check(&["--json"]);
@@ -241,7 +241,7 @@ fn valid_minimal_vrs_tree_passes_json_check() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report = stdout_json(&output);
-    assert_eq!(report["schema_version"], "axe.vrs.check.v1");
+    assert_eq!(report["schema_version"], "axe.intent.check.v1");
     assert_eq!(report["diagnostics"].as_array().unwrap().len(), 0);
 }
 
@@ -249,7 +249,7 @@ fn valid_minimal_vrs_tree_passes_json_check() {
 fn missing_local_markdown_links_are_transitional_locally_and_blocking_in_strict_profile() {
     let h = Harness::new();
     fs::write(
-        h.repo.join("context/vrs/spec.md"),
+        h.repo.join("context/intent/spec.md"),
         "# Spec\n\nSee [missing](./missing.md).\n",
     )
     .expect("broken link");
@@ -259,7 +259,7 @@ fn missing_local_markdown_links_are_transitional_locally_and_blocking_in_strict_
     let local_report = stdout_json(&local);
     assert_eq!(
         local_report["diagnostics"][0]["rule"],
-        "VRS.ENF.link.local-target"
+        "INTENT.ENF.link.local-target"
     );
     assert_eq!(local_report["diagnostics"][0]["severity"], "warning");
     assert_eq!(local_report["diagnostics"][0]["gate"], "transitional");
@@ -272,10 +272,10 @@ fn missing_local_markdown_links_are_transitional_locally_and_blocking_in_strict_
 }
 
 #[test]
-fn meta_vrs_decision_shape_is_blocking() {
+fn root_intent_decision_shape_is_blocking() {
     let h = Harness::new();
     fs::write(
-        h.repo.join("context/vrs/.decisions/0002-bad.md"),
+        h.repo.join("context/intent/.decisions/0002-bad.md"),
         r#"# Bad Decision
 
 Status:
@@ -298,7 +298,7 @@ No comparison table.
     let report = stdout_json(&output);
     let diagnostics = report["diagnostics"].as_array().unwrap();
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.meta-decision-shape"
+        diagnostic["rule"] == "INTENT.ENF.meta-decision-shape"
             && diagnostic["artifact"]
                 .as_str()
                 .unwrap()
@@ -309,10 +309,10 @@ No comparison table.
 #[test]
 fn proposed_decision_records_are_blocking() {
     let h = Harness::new();
-    fs::create_dir_all(h.repo.join("context/vrs/.decisions/.proposed")).expect("proposed dir");
+    fs::create_dir_all(h.repo.join("context/intent/.decisions/.proposed")).expect("proposed dir");
     fs::write(
         h.repo
-            .join("context/vrs/.decisions/.proposed/revisit-scope.md"),
+            .join("context/intent/.decisions/.proposed/revisit-scope.md"),
         "# Proposed\n",
     )
     .expect("proposed decision");
@@ -322,7 +322,7 @@ fn proposed_decision_records_are_blocking() {
     let report = stdout_json(&output);
     let diagnostics = report["diagnostics"].as_array().unwrap();
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.proposed-decision"
+        diagnostic["rule"] == "INTENT.ENF.proposed-decision"
             && diagnostic["severity"] == "error"
             && diagnostic["artifact"]
                 .as_str()
@@ -334,18 +334,18 @@ fn proposed_decision_records_are_blocking() {
 #[test]
 fn delta_record_shape_is_blocking() {
     let h = Harness::new();
-    fs::create_dir_all(h.repo.join("context/vrs/.delta")).expect("delta dir");
+    fs::create_dir_all(h.repo.join("context/intent/.delta")).expect("delta dir");
     fs::write(
-        h.repo.join("context/vrs/.delta/DELTA-001-good.md"),
+        h.repo.join("context/intent/.delta/DELTA-001-good.md"),
         r#"# DELTA-001: Good
 
 Status: open
 
 ## Divergence
 
-The implementation and VRS differ.
+The implementation and Intent differ.
 
-## VRS
+## Intent
 
 See [spec](../spec.md).
 
@@ -355,7 +355,7 @@ Observed in a local check.
 
 ## Direction
 
-update VRS
+update Intent
 
 ## Resolution Signal
 
@@ -364,7 +364,7 @@ The spec reflects the implementation.
     )
     .expect("good delta");
     fs::write(
-        h.repo.join("context/vrs/.delta/delta-bad.md"),
+        h.repo.join("context/intent/.delta/delta-bad.md"),
         r#"# Bad Delta
 
 Status: closed
@@ -381,7 +381,7 @@ This is stale.
     let report = stdout_json(&output);
     let diagnostics = report["diagnostics"].as_array().unwrap();
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.delta-shape"
+        diagnostic["rule"] == "INTENT.ENF.delta-shape"
             && diagnostic["severity"] == "error"
             && diagnostic["artifact"]
                 .as_str()
@@ -397,10 +397,10 @@ This is stale.
 }
 
 #[test]
-fn semantic_review_fixture_inputs_are_not_treated_as_real_vrs_artifacts() {
+fn semantic_review_fixture_inputs_are_not_treated_as_real_intent_artifacts() {
     let h = Harness::new();
     let fixture_delta = h.repo.join(
-        "context/vrs/15-evaluation/semantic-review/stale-delta/input/context/stale-delta/.delta",
+        "context/intent/15-evaluation/semantic-review/stale-delta/input/context/stale-delta/.delta",
     );
     fs::create_dir_all(&fixture_delta).expect("fixture delta dir");
     fs::write(
@@ -429,15 +429,15 @@ fn semantic_review_fixture_inputs_are_not_treated_as_real_vrs_artifacts() {
 #[test]
 fn experiment_and_reference_shape_are_transitional_locally_and_blocking_in_strict_profile() {
     let h = Harness::new();
-    fs::create_dir_all(h.repo.join("context/vrs/.experiments")).expect("experiments dir");
-    fs::create_dir_all(h.repo.join("context/vrs/.reference")).expect("reference dir");
+    fs::create_dir_all(h.repo.join("context/intent/.experiments")).expect("experiments dir");
+    fs::create_dir_all(h.repo.join("context/intent/.reference")).expect("reference dir");
     fs::write(
-        h.repo.join("context/vrs/.experiments/smoke.md"),
+        h.repo.join("context/intent/.experiments/smoke.md"),
         "# Smoke\n\n## Question\n\nWhat happens?\n",
     )
     .expect("experiment");
     fs::write(
-        h.repo.join("context/vrs/.reference/provider.md"),
+        h.repo.join("context/intent/.reference/provider.md"),
         "# Provider\n\n## Relevant Facts\n\nFact.\n",
     )
     .expect("reference");
@@ -447,12 +447,12 @@ fn experiment_and_reference_shape_are_transitional_locally_and_blocking_in_stric
     let local_report = stdout_json(&local);
     let local_diagnostics = local_report["diagnostics"].as_array().unwrap();
     assert!(local_diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.experiment-shape"
+        diagnostic["rule"] == "INTENT.ENF.experiment-shape"
             && diagnostic["severity"] == "warning"
             && diagnostic["gate"] == "transitional"
     }));
     assert!(local_diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.reference-shape"
+        diagnostic["rule"] == "INTENT.ENF.reference-shape"
             && diagnostic["severity"] == "warning"
             && diagnostic["gate"] == "transitional"
     }));
@@ -462,12 +462,12 @@ fn experiment_and_reference_shape_are_transitional_locally_and_blocking_in_stric
     let strict_report = stdout_json(&strict);
     let strict_diagnostics = strict_report["diagnostics"].as_array().unwrap();
     assert!(strict_diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.experiment-shape"
+        diagnostic["rule"] == "INTENT.ENF.experiment-shape"
             && diagnostic["severity"] == "error"
             && diagnostic["gate"] == "blocking"
     }));
     assert!(strict_diagnostics.iter().any(|diagnostic| {
-        diagnostic["rule"] == "VRS.ENF.reference-shape"
+        diagnostic["rule"] == "INTENT.ENF.reference-shape"
             && diagnostic["severity"] == "error"
             && diagnostic["gate"] == "blocking"
     }));
@@ -479,7 +479,7 @@ fn review_refuses_likely_automated_context() {
 
     let output = Command::new(&h.intent)
         .arg("review")
-        .arg(h.repo.join("context/vrs"))
+        .arg(h.repo.join("context/intent"))
         .arg("--coding-agent")
         .arg(&h.coding_agent)
         .env("CI", "true")
@@ -504,7 +504,7 @@ fn review_refuses_backend_without_review_contract_before_invoking_caic_run() {
 
     let output = Command::new(&h.intent)
         .arg("review")
-        .arg(h.repo.join("context/vrs"))
+        .arg(h.repo.join("context/intent"))
         .arg("--coding-agent")
         .arg(fake_coding_agent)
         .env("FAKE_CAIC_RUN_MARKER", &marker)
@@ -516,7 +516,7 @@ fn review_refuses_backend_without_review_contract_before_invoking_caic_run() {
     assert_eq!(output.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("backend opencode does not satisfy axe vrs review preflight"),
+        stderr.contains("backend opencode does not satisfy intent review preflight"),
         "stderr:\n{stderr}"
     );
     assert!(
@@ -533,7 +533,7 @@ fn review_refuses_backend_without_review_contract_before_invoking_caic_run() {
     );
     assert!(
         !marker.exists(),
-        "axe vrs review must not invoke CAIC run after a failed capabilities preflight"
+        "intent review must not invoke CAIC run after a failed capabilities preflight"
     );
 }
 

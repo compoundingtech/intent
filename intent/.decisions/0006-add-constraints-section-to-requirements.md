@@ -5,7 +5,7 @@ Status: accepted
 ## Context
 
 The Notion notes asked to add a constraints section to `requirements.md` and
-called out external systems, resource bounds, and references as important VRS
+called out external systems, resource bounds, and references as important Intent
 areas. Requirements needed a way to distinguish desired behavior from
 non-negotiable boundaries.
 
@@ -27,7 +27,7 @@ references.
 
 ## Decision
 
-VRS requirements files include a first-class `## Constraints` section for
+Intent requirements files include a first-class `## Constraints` section for
 non-negotiable environmental, operational, platform, regulatory, resource, or
 integration limits. Constraints derived from external systems must cite
 `.reference/` material. The constraint is normative; the reference preserves the

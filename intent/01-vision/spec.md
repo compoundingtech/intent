@@ -1,4 +1,4 @@
-# VRS Vision — Spec
+# Intent Vision — Spec
 
 This document specifies `vision.md` files. It builds on
 [requirements.md](./requirements.md).

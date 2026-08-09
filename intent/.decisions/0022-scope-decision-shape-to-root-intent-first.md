@@ -1,21 +1,21 @@
-# Scope decision shape to meta-VRS first
+# Scope decision shape to root Intent contract first
 
 Status: accepted
 
 ## Context
 
-The decision-shape enforcement experiment found that the current meta-VRS
+The decision-shape enforcement experiment found that the current root Intent contract
 decision records already match the proposed strict mechanical shape, while the
 wider `context/**/.decisions` corpus contains many older records that predate
 the current decision contract.
 
 The next question is whether initial enforcement should target only
-`context/vrs/.decisions`, all context decisions in warning mode, changed
+`intent/.decisions`, all context decisions in warning mode, changed
 decisions only, or all decisions with an allowlist.
 
 ## Evidence and Argument
 
-The owning contract for decision-record shape lives in the meta-VRS decision
+The owning contract for decision-record shape lives in the root Intent contract decision
 subsystem. Applying the strict mechanical rule there first proves the rule on
 the canonical examples and avoids turning legacy subsystem decisions into noisy
 migration work before the checker exists.
@@ -31,7 +31,7 @@ rule has proven itself.
 
 | Option | Tradeoffs |
 | --- | --- |
-| Meta-VRS only first | Cleanly proves strict shape on the owning contract and avoids legacy noise, but gives narrower coverage. |
+| Root Intent contract only first | Cleanly proves strict shape on the owning contract and avoids legacy noise, but gives narrower coverage. |
 | All context decisions warning-only | Makes migration debt visible, but can be noisy and may distract from proving the rule. |
 | New or changed decisions only | Avoids legacy churn, but requires diff-aware enforcement. |
 | All decisions with allowlist | Comprehensive, but creates allowlist maintenance before rule maturity. |
@@ -39,7 +39,7 @@ rule has proven itself.
 ## Decision
 
 Initial strict decision-shape enforcement applies only to
-`context/vrs/.decisions/`.
+`intent/.decisions/`.
 
 Broader `context/**/.decisions/` checks may be introduced later as migration
 diagnostics or scoped warnings after the checker has stable diagnostics and a
@@ -47,9 +47,9 @@ clear migration plan.
 
 ## Consequences
 
-- The first decision-shape checker should use the meta-VRS decisions as the
+- The first decision-shape checker should use the root Intent contract decisions as the
   strict target corpus.
 - Repo-wide decision-shape findings remain migration evidence, not merge
   blockers.
 - The broader corpus can be migrated deliberately without weakening the strict
-  shape contract for new meta-VRS decisions.
+  shape contract for new root Intent contract decisions.

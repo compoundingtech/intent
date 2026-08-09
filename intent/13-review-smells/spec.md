@@ -1,6 +1,6 @@
-# VRS Review Smells — Spec
+# Intent Review Smells — Spec
 
-This document specifies VRS review smells. It builds on
+This document specifies Intent review smells. It builds on
 [requirements.md](./requirements.md).
 
 ## Status
@@ -21,13 +21,13 @@ Draft.
 | `roadmap.md` reads like current contract. | Promote it to requirements/spec/decision or weaken it to non-normative future direction. |
 | `.delta/` contains stale, vague, speculative, duplicate, or completed entries. | Update or delete the delta. |
 | `.decisions/.proposed/` would merge to main. | Accept, fold, defer to open questions, or delete proposed records before merge. |
-| A decision embeds raw experiment logs, benchmark tables, transcripts, or follow-up backlog. | Summarize the decisive evidence and link to `.experiments/`, `.reference/`, code, planning, or the owning VRS artifact. |
+| A decision embeds raw experiment logs, benchmark tables, transcripts, or follow-up backlog. | Summarize the decisive evidence and link to `.experiments/`, `.reference/`, code, planning, or the owning Intent artifact. |
 | `.experiments/` contains plans instead of evidence. | Move plans to the planning system; keep only evidence records. |
 | `.experiments/` aggregates unrelated questions until the conclusion is hard to promote. | Split by major question, hypothesis, or validation method. |
-| `.reference/` contains copied external docs without VRS impact. | Summarize relevant facts and link to the source. |
+| `.reference/` contains copied external docs without Intent impact. | Summarize relevant facts and link to the source. |
 | Empty companion directories exist to satisfy a template. | Delete them until real content exists. |
-| A generic `README.md` is used as VRS entry point. | Use `intuition.md`; keep README for repository onboarding only. |
-| Requirements exceed 30 items or approach 40. | Split into child VRS nodes. |
+| A generic `README.md` is used as Intent entry point. | Use `intuition.md`; keep README for repository onboarding only. |
+| Requirements exceed 30 items or approach 40. | Split into child Intent nodes. |
 
-Agents should run this catalog before finalizing VRS edits and fix any smell in
+Agents should run this catalog before finalizing Intent edits and fix any smell in
 the same change when the correct owner is clear.

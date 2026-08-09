@@ -1,4 +1,4 @@
-# VRS Intuition — Spec
+# Intent Intuition — Spec
 
 This document specifies `intuition.md` files. It builds on
 [requirements.md](./requirements.md).

@@ -4,8 +4,8 @@ Status: open
 
 ## Divergence
 
-`VRS.DEC-R10` confines proposed decision records to `.decisions/.proposed/`
-"during a PR only". `VRS.DEC-R11` requires every proposed record to be accepted,
+`INTENT.DEC-R10` confines proposed decision records to `.decisions/.proposed/`
+"during a PR only". `INTENT.DEC-R11` requires every proposed record to be accepted,
 folded into another artifact, moved to `open-questions.md`, or deleted **before
 merge**. [0034](../.decisions/0034-proposal-exit-is-enforced-at-merge-not-relaxed.md)
 decides those requirements stand and are **enforced at merge**.
@@ -27,11 +27,11 @@ The six are not a backlog awaiting ratification; under R11 each is a record that
 should already have exited. 0034 treats them as evidence of what an unenforced
 proposed state becomes, and they are the immediate work to clear.
 
-## VRS
+## Intent
 
 - [0034](../.decisions/0034-proposal-exit-is-enforced-at-merge-not-relaxed.md) — the
   decision, the rejected durable-state option, and the accepted `rm`-to-green risk.
-- `VRS.DEC-R10`, `VRS.DEC-R11` in [06-decisions/requirements.md](../06-decisions/requirements.md).
+- `INTENT.DEC-R10`, `INTENT.DEC-R11` in [06-decisions/requirements.md](../06-decisions/requirements.md).
 - [16-enforcement](../16-enforcement/) — where a check belongs.
 
 ## Implementation

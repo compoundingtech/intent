@@ -67,7 +67,7 @@ intent tree with its own `requirements.md` and `spec.md`.
 | `11-roadmap` | `roadmap.md` — directions under consideration, not a plan |
 | `12-common-subsystems` | recurring subsystem shapes worth naming once |
 | `13-review-smells` | what a reviewer should look for in an intent tree |
-| `14-grill-vrs` | the procedure for interrogating a tree until it holds up |
+| `14-grill-intent` | the procedure for interrogating a tree until it holds up |
 | `15-evaluation` | isolated evaluation runs and their fixtures |
 | `16-enforcement` | the rules a checker can enforce mechanically |
 

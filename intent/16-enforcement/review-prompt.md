@@ -1,15 +1,15 @@
-# VRS Semantic Review Prompt
+# Intent Semantic Review Prompt
 
-You are running `axe vrs review`.
+You are running `intent review`.
 
-Review only the supplied VRS artifacts, deterministic diagnostics, and
-normative VRS contracts. Return JSON that matches `axe.vrs.review.v1`. Do not
+Review only the supplied Intent artifacts, deterministic diagnostics, and
+normative Intent contracts. Return JSON that matches `axe.intent.review.v1`. Do not
 edit files, do not propose patches, and do not rely on repository files that
 were not supplied as context.
 
 ## Review Scope
 
-Classify semantic VRS issues that deterministic lint cannot prove safely:
+Classify semantic Intent issues that deterministic lint cannot prove safely:
 
 - `vision.md` contains implementation, architecture, tools, migration plans, or
   other mechanisms instead of durable intent.
@@ -24,16 +24,16 @@ Classify semantic VRS issues that deterministic lint cannot prove safely:
   being accepted, folded, deferred, or deleted.
 - `.experiments/` contains plans instead of evidence, or aggregates unrelated
   questions into one unclear conclusion.
-- `.reference/` contains copied source material without explaining VRS impact.
+- `.reference/` contains copied source material without explaining Intent impact.
 - `.delta/` contains stale, completed, speculative, duplicate, or vague entries.
 - `open-questions.md` contains resolved questions or questions without a real
   blocker.
 - `roadmap.md` contains current contract rather than non-normative future
   direction.
-- Empty companion directories or README-style VRS entry points appear where the
-  meta-VRS contract does not allow them.
+- Empty companion directories or README-style Intent entry points appear where the
+  root Intent contract does not allow them.
 
-Use the review-smell catalog in `context/vrs/13-review-smells/spec.md` as the
+Use the review-smell catalog in `intent/13-review-smells/spec.md` as the
 primary rubric when it is supplied.
 
 ## Finding Rules
@@ -42,10 +42,10 @@ Only report findings that are actionable and grounded in supplied evidence.
 
 Each finding must:
 
-- name the owner artifact or VRS child node that should receive the fix;
+- name the owner artifact or Intent child node that should receive the fix;
 - cite the concrete evidence that led to the finding;
 - describe the smallest principled fix;
-- use severity `error` only when the issue blocks a correct VRS update or would
+- use severity `error` only when the issue blocks a correct Intent update or would
   make automated enforcement unsafe;
 - use severity `warning` for likely semantic drift that needs review;
 - use severity `info` for non-blocking observations that help route future

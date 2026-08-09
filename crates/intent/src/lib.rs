@@ -17,18 +17,18 @@ const REVIEW_PROMPT_ASSET: &str = "16-enforcement/review-prompt.md";
 const REVIEW_SCHEMA_ASSET: &str = "16-enforcement/review-result.schema.json";
 
 #[derive(Parser, Debug)]
-pub struct VrsCli {
+pub struct IntentCli {
     #[command(subcommand)]
-    pub cmd: VrsCmd,
+    pub cmd: IntentCmd,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum VrsCmd {
-    /// Run deterministic VRS checks.
+pub enum IntentCmd {
+    /// Run deterministic Intent checks.
     Check(CheckArgs),
-    /// Emit the derived VRS graph subset.
+    /// Emit the derived Intent graph subset.
     Graph(GraphArgs),
-    /// Run semantic VRS review through the Coding Agent Invocation Contract.
+    /// Run semantic Intent review through the Coding Agent Invocation Contract.
     Review(ReviewArgs),
     /// Grade semantic review against evaluation-fixture minimum assertions.
     ReviewFixtures(ReviewFixturesArgs),
@@ -36,7 +36,7 @@ pub enum VrsCmd {
 
 #[derive(Parser, Debug)]
 pub struct CheckArgs {
-    /// VRS root to check.
+    /// Intent root to check.
     pub root: Option<PathBuf>,
 
     /// Rule profile to run.
@@ -54,7 +54,7 @@ pub struct CheckArgs {
 
 #[derive(Parser, Debug)]
 pub struct GraphArgs {
-    /// VRS root to graph.
+    /// Intent root to graph.
     pub root: Option<PathBuf>,
 
     /// Emit machine-readable graph JSON.
@@ -64,7 +64,7 @@ pub struct GraphArgs {
 
 #[derive(Parser, Debug)]
 pub struct ReviewArgs {
-    /// VRS root to review.
+    /// Intent root to review.
     pub root: Option<PathBuf>,
 
     /// Rule profile to use for the deterministic diagnostics packet.
@@ -188,11 +188,12 @@ pub struct GraphEdge {
 
 /// Where to look when the caller gave no path.
 ///
-/// Which directory holds a corpus is the embedding repository's layout policy, not
-/// something a reusable checker can know: `intent` defaults to the directory it is
-/// run in, while `axe vrs` supplies dotfiles' own `context/vrs`. Baking one repo's
-/// layout in here is what made the tool unusable anywhere else, and a wrong default
-/// is invisible — checking a path that holds no VRS artifacts exits 0.
+/// Which directory holds a corpus is the embedding repository's layout policy,
+/// not something a reusable checker can know: `intent` defaults to the directory
+/// it is run in, while an embedding caller may supply a repository-specific root.
+/// Baking one repo's layout in here makes the tool unusable elsewhere, and a
+/// wrong default is invisible — checking a path that holds no Intent artifacts
+/// exits 0.
 pub struct Defaults {
     corpus_root: PathBuf,
 }
@@ -221,18 +222,18 @@ impl Default for Defaults {
     }
 }
 
-pub fn run(cli: VrsCli) -> ExitCode {
+pub fn run(cli: IntentCli) -> ExitCode {
     run_with(cli, &Defaults::default())
 }
 
-/// `run` with the caller's layout policy. `axe vrs` uses this to keep its own
-/// `context/vrs` default, so extracting this crate did not change its behavior.
-pub fn run_with(cli: VrsCli, defaults: &Defaults) -> ExitCode {
+/// `run` with the caller's layout policy so an embedding can select its corpus
+/// root without changing the standalone default.
+pub fn run_with(cli: IntentCli, defaults: &Defaults) -> ExitCode {
     match cli.cmd {
-        VrsCmd::Check(args) => run_check(args, defaults),
-        VrsCmd::Graph(args) => run_graph(args, defaults),
-        VrsCmd::Review(args) => run_review(args, defaults),
-        VrsCmd::ReviewFixtures(args) => run_review_fixtures(args, defaults),
+        IntentCmd::Check(args) => run_check(args, defaults),
+        IntentCmd::Graph(args) => run_graph(args, defaults),
+        IntentCmd::Review(args) => run_review(args, defaults),
+        IntentCmd::ReviewFixtures(args) => run_review_fixtures(args, defaults),
     }
 }
 
@@ -241,7 +242,7 @@ fn run_check(args: CheckArgs, defaults: &Defaults) -> ExitCode {
     let report = match check_root(&root, args.profile) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("axe vrs check: {error}");
+            eprintln!("intent check: {error}");
             return ExitCode::from(2);
         }
     };
@@ -254,12 +255,12 @@ fn run_check(args: CheckArgs, defaults: &Defaults) -> ExitCode {
         match serde_json::to_string_pretty(&report) {
             Ok(json) => println!("{json}"),
             Err(error) => {
-                eprintln!("axe vrs check: failed to render json: {error}");
+                eprintln!("intent check: failed to render json: {error}");
                 return ExitCode::from(2);
             }
         }
     } else if report.diagnostics.is_empty() {
-        println!("axe vrs check: ok");
+        println!("intent check: ok");
     } else {
         for diagnostic in &report.diagnostics {
             println!(
@@ -284,7 +285,7 @@ fn run_graph(args: GraphArgs, defaults: &Defaults) -> ExitCode {
     let report = match graph_root(&root) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("axe vrs graph: {error}");
+            eprintln!("intent graph: {error}");
             return ExitCode::from(2);
         }
     };
@@ -293,13 +294,13 @@ fn run_graph(args: GraphArgs, defaults: &Defaults) -> ExitCode {
         match serde_json::to_string_pretty(&report) {
             Ok(json) => println!("{json}"),
             Err(error) => {
-                eprintln!("axe vrs graph: failed to render json: {error}");
+                eprintln!("intent graph: failed to render json: {error}");
                 return ExitCode::from(2);
             }
         }
     } else {
         println!(
-            "axe vrs graph: {} nodes, {} edges",
+            "intent graph: {} nodes, {} edges",
             report.nodes.len(),
             report.edges.len()
         );
@@ -311,12 +312,12 @@ fn run_graph(args: GraphArgs, defaults: &Defaults) -> ExitCode {
 fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
     let args_root = defaults.root_or_default(args.root);
     if let Some(indicator) = automated_context_indicator() {
-        eprintln!("axe vrs review: refusing semantic review in automated context ({indicator})");
+        eprintln!("intent review: refusing semantic review in automated context ({indicator})");
         return ExitCode::from(2);
     }
 
     if let Err(error) = preflight_review_backend(&args.coding_agent, args.backend.as_deref()) {
-        eprintln!("axe vrs review: {error}");
+        eprintln!("intent review: {error}");
         return ExitCode::from(2);
     }
 
@@ -324,31 +325,28 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         Ok(root) => root,
         Err(error) => {
             eprintln!(
-                "axe vrs review: invalid root {}: {error}",
+                "intent review: invalid root {}: {error}",
                 args_root.display()
             );
             return ExitCode::from(2);
         }
     };
     if !root.is_dir() {
-        eprintln!(
-            "axe vrs review: root is not a directory: {}",
-            root.display()
-        );
+        eprintln!("intent review: root is not a directory: {}", root.display());
         return ExitCode::from(2);
     }
     let workspace = review_workspace(&root);
     let prompt = match corpus_asset(&root, REVIEW_PROMPT_ASSET) {
         Ok(path) => path,
         Err(error) => {
-            eprintln!("axe vrs review: {error}");
+            eprintln!("intent review: {error}");
             return ExitCode::from(2);
         }
     };
     let schema = match corpus_asset(&root, REVIEW_SCHEMA_ASSET) {
         Ok(path) => path,
         Err(error) => {
-            eprintln!("axe vrs review: {error}");
+            eprintln!("intent review: {error}");
             return ExitCode::from(2);
         }
     };
@@ -367,7 +365,7 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
     let mut plan = match prepare_review(&invocation) {
         Ok(plan) => plan,
         Err(error) => {
-            eprintln!("axe vrs review: {}", error.message);
+            eprintln!("intent review: {}", error.message);
             return ExitCode::from(error.exit_code);
         }
     };
@@ -376,7 +374,7 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         Ok(output) => output,
         Err(error) => {
             eprintln!(
-                "axe vrs review: failed to start CAIC executable {}: {error}",
+                "intent review: failed to start CAIC executable {}: {error}",
                 args.coding_agent.display()
             );
             return ExitCode::from(2);
@@ -394,7 +392,7 @@ struct ReviewInvocation<'a> {
     coding_agent: &'a Path,
     backend: Option<&'a str>,
     timeout_seconds: Option<u64>,
-    /// VRS tree to review.
+    /// Intent tree to review.
     root: &'a Path,
     /// Directory the coding agent runs in. Finding artifact paths are reported
     /// relative to it, so it decides what an artifact path in a review result means.
@@ -426,7 +424,7 @@ impl ReviewSetupError {
 }
 
 /// Build the CAIC invocation for one semantic review, including the deterministic
-/// diagnostics packet. Shared by `axe vrs review` and `axe vrs review-fixtures` so
+/// diagnostics packet. Shared by the operator and fixture-review commands so
 /// fixture grading exercises the same invocation the operator command uses.
 fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, ReviewSetupError> {
     let target_files = match markdown_files(invocation.root) {
@@ -434,7 +432,7 @@ fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, Revie
         Ok(_) => {
             return Err(ReviewSetupError {
                 message: format!(
-                    "no markdown VRS artifacts found under {}",
+                    "no markdown Intent artifacts found under {}",
                     invocation.root.display()
                 ),
                 exit_code: 1,
@@ -442,7 +440,7 @@ fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, Revie
         }
         Err(error) => {
             return Err(ReviewSetupError::tool(format!(
-                "failed to collect VRS artifacts: {error}"
+                "failed to collect Intent artifacts: {error}"
             )))
         }
     };
@@ -462,9 +460,9 @@ fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, Revie
     let tempdir = tempfile::tempdir().map_err(|error| {
         ReviewSetupError::tool(format!("failed to create diagnostics packet: {error}"))
     })?;
-    let diagnostics_path = tempdir.path().join("axe-vrs-check.json");
+    let diagnostics_path = tempdir.path().join("intent-check.json");
     let diagnostics_packet = serde_json::json!({
-        "producer": "axe vrs check --json",
+        "producer": "intent check --json",
         "schema_version": report.schema_version,
         "root": report.root,
         "profile": report.profile,
@@ -565,13 +563,13 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     let args_root = defaults.fixtures_or_default(args.root.clone());
     if let Some(indicator) = automated_context_indicator() {
         eprintln!(
-            "axe vrs review-fixtures: refusing fixture review in automated context ({indicator})"
+            "intent review-fixtures: refusing fixture review in automated context ({indicator})"
         );
         return ExitCode::from(2);
     }
 
     if let Err(error) = preflight_review_backend(&args.coding_agent, args.backend.as_deref()) {
-        eprintln!("axe vrs review-fixtures: {error}");
+        eprintln!("intent review-fixtures: {error}");
         return ExitCode::from(2);
     }
 
@@ -579,14 +577,14 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
         Ok(root) if root.is_dir() => root,
         Ok(root) => {
             eprintln!(
-                "axe vrs review-fixtures: fixtures root is not a directory: {}",
+                "intent review-fixtures: fixtures root is not a directory: {}",
                 root.display()
             );
             return ExitCode::from(2);
         }
         Err(error) => {
             eprintln!(
-                "axe vrs review-fixtures: invalid fixtures root {}: {error}",
+                "intent review-fixtures: invalid fixtures root {}: {error}",
                 args_root.display()
             );
             return ExitCode::from(2);
@@ -596,7 +594,7 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     let selected = match select_fixtures(&root, &args.fixtures) {
         Ok(selected) => selected,
         Err(error) => {
-            eprintln!("axe vrs review-fixtures: {error}");
+            eprintln!("intent review-fixtures: {error}");
             return ExitCode::from(2);
         }
     };
@@ -606,7 +604,7 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     let workspaces = match tempfile::tempdir() {
         Ok(workspaces) => workspaces,
         Err(error) => {
-            eprintln!("axe vrs review-fixtures: failed to create eval workspace: {error}");
+            eprintln!("intent review-fixtures: failed to create eval workspace: {error}");
             return ExitCode::from(2);
         }
     };
@@ -626,7 +624,7 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     let errored = grades.iter().filter(|g| g.status == "errored").count();
     let skipped = grades.iter().filter(|g| g.status == "skipped").count();
     let report = FixtureGradingReport {
-        schema_version: "axe.vrs.review-fixtures.v1",
+        schema_version: "axe.intent.review-fixtures.v1",
         fixtures_root: root.display().to_string(),
         backend: args.backend.clone(),
         fixtures: grades,
@@ -639,14 +637,14 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     let json = match serde_json::to_string_pretty(&report) {
         Ok(json) => json,
         Err(error) => {
-            eprintln!("axe vrs review-fixtures: failed to render grading report: {error}");
+            eprintln!("intent review-fixtures: failed to render grading report: {error}");
             return ExitCode::from(2);
         }
     };
     if let Some(path) = &args.report {
         if let Err(error) = fs::write(path, format!("{json}\n")) {
             eprintln!(
-                "axe vrs review-fixtures: failed to write grading report {}: {error}",
+                "intent review-fixtures: failed to write grading report {}: {error}",
                 path.display()
             );
             return ExitCode::from(2);
@@ -685,7 +683,7 @@ fn print_fixture_grades(report: &FixtureGradingReport) {
         }
     }
     println!(
-        "axe vrs review-fixtures: {} passed, {} failed, {} errored, {} skipped",
+        "intent review-fixtures: {} passed, {} failed, {} errored, {} skipped",
         report.passed, report.failed, report.errored, report.skipped
     );
 }
@@ -1040,7 +1038,7 @@ fn validate_review_capabilities(
         Ok(())
     } else {
         Err(format!(
-            "backend {backend_id} does not satisfy axe vrs review preflight: missing {}",
+            "backend {backend_id} does not satisfy intent review preflight: missing {}",
             missing.join(", ")
         ))
     }
@@ -1081,14 +1079,14 @@ pub fn check_root(
         check_markdown_links(&root, path, profile, &mut diagnostics)?;
     }
 
-    let decision_dir = meta_vrs_decision_dir(&root);
+    let decision_dir = root_intent_decision_dir(&root);
     if decision_dir.is_dir() {
         check_meta_decision_shape(&root, &decision_dir, profile, &mut diagnostics)?;
     }
     check_companion_directories(&root, profile, &mut diagnostics)?;
 
     Ok(CheckReport {
-        schema_version: "axe.vrs.check.v1",
+        schema_version: "axe.intent.check.v1",
         root: root.display().to_string(),
         profile: match profile {
             Profile::Local => "local",
@@ -1193,18 +1191,18 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
     }
 
     Ok(GraphReport {
-        schema_version: "axe.vrs.graph.v0",
+        schema_version: "axe.intent.graph.v0",
         root: root.display().to_string(),
         nodes: nodes.into_iter().collect(),
         edges: edges.into_iter().collect(),
     })
 }
 
-// Corpus-relative only. The old second branch guessed `context/vrs/.decisions` to
-// cover being handed a repository root instead of a corpus root — a guess that was
-// silently wrong for any repository laid out differently, and that let a misaimed
-// invocation look like a clean one. Pointing this at a corpus is the caller's job.
-fn meta_vrs_decision_dir(root: &Path) -> PathBuf {
+// Corpus-relative only. A removed fallback guessed a repository-specific
+// `.decisions` path when handed a repository root. That was silently wrong for
+// other layouts and let a misaimed invocation look clean. Pointing this at a
+// corpus is the caller's job.
+fn root_intent_decision_dir(root: &Path) -> PathBuf {
     root.join(".decisions")
 }
 
@@ -1226,7 +1224,7 @@ fn check_markdown_links(
                 diagnostics.push(diagnostic(
                     root,
                     path,
-                    "VRS.ENF.link.local-target",
+                    "INTENT.ENF.link.local-target",
                     format!("Local anchor `#{anchor_part}` does not resolve."),
                     "Update the anchor or heading in this file.",
                     link_severity(profile),
@@ -1240,7 +1238,7 @@ fn check_markdown_links(
             diagnostics.push(diagnostic(
                 root,
                 path,
-                "VRS.ENF.link.local-target",
+                "INTENT.ENF.link.local-target",
                 format!("Markdown link target `{target}` does not exist."),
                 "Update the link target or add the referenced artifact.",
                 link_severity(profile),
@@ -1255,7 +1253,7 @@ fn check_markdown_links(
                 diagnostics.push(diagnostic(
                     root,
                     path,
-                    "VRS.ENF.link.local-target",
+                    "INTENT.ENF.link.local-target",
                     format!("Markdown link anchor `{target}` does not resolve."),
                     "Update the anchor or add the referenced heading.",
                     link_severity(profile),
@@ -1388,7 +1386,7 @@ fn check_proposed_decisions(
         diagnostics.push(diagnostic(
             root,
             &path,
-            "VRS.ENF.proposed-decision",
+            "INTENT.ENF.proposed-decision",
             "Proposed decision records are PR-local and must not merge.".to_string(),
             "Accept the decision, fold it into requirements/spec, move it to open questions, or delete it before merge.",
             Severity::Error,
@@ -1408,7 +1406,7 @@ fn check_delta_shape(
             diagnostics.push(diagnostic(
                 root,
                 &path,
-                "VRS.ENF.delta-shape",
+                "INTENT.ENF.delta-shape",
                 format!("Delta filename `{file_name}` must match `DELTA-001-<slug>.md`."),
                 "Rename the delta with a stable `DELTA-NNN-<slug>.md` identifier.",
                 Severity::Error,
@@ -1421,7 +1419,7 @@ fn check_delta_shape(
             Some(status) => diagnostics.push(diagnostic(
                 root,
                 &path,
-                "VRS.ENF.delta-shape",
+                "INTENT.ENF.delta-shape",
                 format!("Delta status `{status}` is not `open`."),
                 "Keep only open delta records; close resolved deltas by deleting the file.",
                 Severity::Error,
@@ -1429,7 +1427,7 @@ fn check_delta_shape(
             None => diagnostics.push(diagnostic(
                 root,
                 &path,
-                "VRS.ENF.delta-shape",
+                "INTENT.ENF.delta-shape",
                 "Delta record is missing `Status: open`.".to_string(),
                 "Add `Status: open` or delete the delta if it is resolved.",
                 Severity::Error,
@@ -1439,7 +1437,7 @@ fn check_delta_shape(
         let sections = sections(&content);
         for heading in [
             "Divergence",
-            "VRS",
+            "Intent",
             "Implementation",
             "Direction",
             "Resolution Signal",
@@ -1449,7 +1447,7 @@ fn check_delta_shape(
                 &path,
                 &sections,
                 heading,
-                "VRS.ENF.delta-shape",
+                "INTENT.ENF.delta-shape",
                 "Fill the required delta section or delete the stale delta.",
                 Severity::Error,
                 diagnostics,
@@ -1461,12 +1459,12 @@ fn check_delta_shape(
             .find(|section| section.heading == "Direction")
         {
             let value = direction.body.trim();
-            if !matches!(value, "update implementation" | "update VRS" | "decide") {
+            if !matches!(value, "update implementation" | "update Intent" | "decide") {
                 diagnostics.push(diagnostic(
                     root,
                     &path,
-                    "VRS.ENF.delta-shape",
-                    format!("Delta direction `{value}` must be `update implementation`, `update VRS`, or `decide`."),
+                    "INTENT.ENF.delta-shape",
+                    format!("Delta direction `{value}` must be `update implementation`, `update Intent`, or `decide`."),
                     "Set `## Direction` to one of the accepted delta direction values.",
                     Severity::Error,
                 ));
@@ -1485,13 +1483,19 @@ fn check_experiment_shape(
     for path in markdown_files_direct(experiment_dir)? {
         let content = fs::read_to_string(&path)?;
         let sections = sections(&content);
-        for heading in ["Question", "Method", "Result", "Conclusion", "VRS Impact"] {
+        for heading in [
+            "Question",
+            "Method",
+            "Result",
+            "Conclusion",
+            "Intent Impact",
+        ] {
             require_section(
                 root,
                 &path,
                 &sections,
                 heading,
-                "VRS.ENF.experiment-shape",
+                "INTENT.ENF.experiment-shape",
                 "Fill the required experiment evidence section or move speculative work out of `.experiments/`.",
                 companion_shape_severity(profile),
                 diagnostics,
@@ -1513,7 +1517,7 @@ fn check_reference_shape(
             diagnostics.push(diagnostic(
                 root,
                 &path,
-                "VRS.ENF.reference-shape",
+                "INTENT.ENF.reference-shape",
                 "Reference record is missing `Source:`.".to_string(),
                 "Add the URL, file, command, or system that supplied the reference facts.",
                 companion_shape_severity(profile),
@@ -1521,14 +1525,14 @@ fn check_reference_shape(
         }
 
         let sections = sections(&content);
-        for heading in ["Relevant Facts", "VRS Impact"] {
+        for heading in ["Relevant Facts", "Intent Impact"] {
             require_section(
                 root,
                 &path,
                 &sections,
                 heading,
-                "VRS.ENF.reference-shape",
-                "Fill the required reference section or delete source material that has no VRS impact.",
+                "INTENT.ENF.reference-shape",
+                "Fill the required reference section or delete source material that has no Intent impact.",
                 companion_shape_severity(profile),
                 diagnostics,
             );
@@ -1537,10 +1541,9 @@ fn check_reference_shape(
     Ok(())
 }
 
-// Eight arguments, one over clippy's threshold. Left as-is deliberately: this crate
-// is a lift of `axe vrs`, whose acceptance bar is that it behaves identically, and
-// grouping these into a struct is a refactor whose only motivation is a style lint.
-// Worth doing later, on its own, where a regression would be attributable.
+// Eight arguments, one over clippy's threshold. Grouping these into a struct is
+// unrelated to the identifier migration and is best handled as an isolated
+// refactor where any behavioral regression is attributable.
 #[allow(clippy::too_many_arguments)]
 fn require_section(
     root: &Path,
@@ -1620,10 +1623,10 @@ fn markdown_files_direct(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error:
 /// artifacts may not escape.
 ///
 /// This is still repository-scoped rather than corpus-scoped: a reviewer reasoning
-/// about a corpus needs the repository around it. The `context/vrs` sentinel that
-/// used to back this up is gone — it named one repository's layout, and it was only
-/// ever reached when `.git` was absent. Falling back to the corpus root keeps that
-/// no-`.git` case working without the tool having to know any repository's shape.
+/// about a corpus needs the repository around it. A removed repository-specific
+/// sentinel was only reached when `.git` was absent. Falling back to the corpus
+/// root keeps that no-`.git` case working without teaching the tool a repository
+/// layout.
 fn review_workspace(root: &Path) -> PathBuf {
     for ancestor in root.ancestors() {
         if ancestor.join(".git").exists() {
@@ -1683,9 +1686,9 @@ fn visit_markdown(
         }
         if path.is_dir() {
             // Semantic-review fixture `input/` trees are deliberately broken synthetic
-            // artifacts. They are neither real VRS artifacts for deterministic checks nor
+            // artifacts. They are neither real Intent artifacts for deterministic checks nor
             // normative review context; collecting them would ship planted smells to the
-            // provider as genuine VRS.
+            // provider as genuine Intent.
             if is_semantic_review_fixture_input(root, &path) {
                 continue;
             }
@@ -1817,7 +1820,7 @@ fn structured_id_in_line(line: &str) -> Option<StructuredId> {
     let label = line[start..end].trim().trim_end_matches(':').trim();
     let mut parts = label.splitn(2, char::is_whitespace);
     let id = parts.next()?.trim();
-    if !looks_like_vrs_id(id) {
+    if !looks_like_intent_id(id) {
         return None;
     }
     let title = parts.next().unwrap_or("").trim().to_string();
@@ -1835,7 +1838,7 @@ fn structured_id_in_line(line: &str) -> Option<StructuredId> {
     })
 }
 
-fn looks_like_vrs_id(value: &str) -> bool {
+fn looks_like_intent_id(value: &str) -> bool {
     value.len() >= 2
         && value.chars().any(|ch| ch.is_ascii_digit())
         && value
@@ -1849,7 +1852,7 @@ fn refs_in_text(text: &str) -> Vec<String> {
     })
     .filter_map(|part| {
         let candidate = part.trim_matches('.');
-        looks_like_vrs_id(candidate).then(|| candidate.to_string())
+        looks_like_intent_id(candidate).then(|| candidate.to_string())
     })
     .collect()
 }
@@ -2096,7 +2099,7 @@ fn decision_shape_diagnostic(
     diagnostic(
         root,
         path,
-        "VRS.ENF.meta-decision-shape",
+        "INTENT.ENF.meta-decision-shape",
         evidence,
         suggested_fix,
         Severity::Error,
@@ -2126,7 +2129,7 @@ fn diagnostic(
     severity: Severity,
 ) -> Diagnostic {
     Diagnostic {
-        schema_version: "axe.vrs.diagnostic.v1",
+        schema_version: "axe.intent.diagnostic.v1",
         kind: "deterministic",
         gate: match severity {
             Severity::Error => "blocking",
@@ -2173,9 +2176,9 @@ mod tests {
     #[test]
     fn valid_fixture_passes_strict_checks() {
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.path().join("context/vrs");
+        let root = tempdir.path().join("context/intent");
         fs::create_dir_all(&root).unwrap();
-        write_valid_vrs(&root);
+        write_valid_intent(&root);
 
         let report = check_root(&root, Profile::Strict).unwrap();
         assert!(
@@ -2188,9 +2191,9 @@ mod tests {
     #[test]
     fn broken_links_and_decisions_are_reported() {
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.path().join("context/vrs");
+        let root = tempdir.path().join("context/intent");
         fs::create_dir_all(&root).unwrap();
-        write_valid_vrs(&root);
+        write_valid_intent(&root);
         fs::write(
             root.join("spec.md"),
             "# Spec\n\nSee [missing](./missing.md) and [bad anchor](./requirements.md#missing).\n",
@@ -2204,8 +2207,8 @@ mod tests {
 
         let report = check_root(&root, Profile::Strict).unwrap();
         let rules: Vec<_> = report.diagnostics.iter().map(|d| d.rule).collect();
-        assert!(rules.contains(&"VRS.ENF.link.local-target"));
-        assert!(rules.contains(&"VRS.ENF.meta-decision-shape"));
+        assert!(rules.contains(&"INTENT.ENF.link.local-target"));
+        assert!(rules.contains(&"INTENT.ENF.meta-decision-shape"));
         assert!(report
             .diagnostics
             .iter()
@@ -2215,7 +2218,7 @@ mod tests {
     #[test]
     fn local_profile_still_blocks_for_decision_shape() {
         let tempdir = tempfile::tempdir().unwrap();
-        let root = tempdir.path().join("context/vrs");
+        let root = tempdir.path().join("context/intent");
         fs::create_dir_all(root.join(".decisions")).unwrap();
         fs::write(
             root.join(".decisions/0001-bad.md"),
@@ -2224,22 +2227,20 @@ mod tests {
         .unwrap();
 
         let report = check_root(&root, Profile::Local).unwrap();
-        assert!(report
-            .diagnostics
-            .iter()
-            .any(|d| { d.rule == "VRS.ENF.meta-decision-shape" && d.severity == Severity::Error }));
+        assert!(report.diagnostics.iter().any(|d| {
+            d.rule == "INTENT.ENF.meta-decision-shape" && d.severity == Severity::Error
+        }));
     }
 
-    // The extraction's acceptance bar is that `axe vrs` behaves identically, and the
-    // only thing holding that up is the caller keeping its own default. Locked here
+    // Embedded callers keep their own corpus default. Lock that behavior here
     // because a regression is silent: the wrong root still exits 0.
     #[test]
     fn an_absent_argument_falls_back_to_the_callers_layout() {
-        let axe = Defaults::corpus_root("context/vrs");
-        assert_eq!(axe.root_or_default(None), PathBuf::from("context/vrs"));
+        let axe = Defaults::corpus_root("context/intent");
+        assert_eq!(axe.root_or_default(None), PathBuf::from("context/intent"));
         assert_eq!(
             axe.fixtures_or_default(None),
-            PathBuf::from("context/vrs/15-evaluation/semantic-review")
+            PathBuf::from("context/intent/15-evaluation/semantic-review")
         );
 
         // Standalone `intent` checks the corpus it is run in.
@@ -2253,7 +2254,7 @@ mod tests {
 
     #[test]
     fn an_explicit_argument_always_beats_the_default() {
-        let defaults = Defaults::corpus_root("context/vrs");
+        let defaults = Defaults::corpus_root("context/intent");
         let explicit = PathBuf::from("/somewhere/else");
         assert_eq!(defaults.root_or_default(Some(explicit.clone())), explicit);
         assert_eq!(
@@ -2262,9 +2263,9 @@ mod tests {
         );
     }
 
-    // Covers the branch that replaced the `context/vrs` sentinel. It is only ever
-    // reached where there is no `.git` — a Nix build sandbox or a vendored source
-    // tree — so it is invisible to any interactive run.
+    // Covers the fallback used when there is no `.git`, such as a Nix build
+    // sandbox or vendored source tree. Interactive runs normally take the
+    // enclosing-repository branch instead.
     #[test]
     fn review_workspace_falls_back_to_the_corpus_when_there_is_no_git() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -2301,12 +2302,12 @@ mod tests {
         );
 
         // A repository-relative copy must NOT satisfy a corpus-relative lookup.
-        fs::create_dir_all(repo.join("context/vrs/16-enforcement")).unwrap();
-        fs::write(repo.join("context/vrs").join(REVIEW_SCHEMA_ASSET), "{}").unwrap();
+        fs::create_dir_all(repo.join("context/intent/16-enforcement")).unwrap();
+        fs::write(repo.join("context/intent").join(REVIEW_SCHEMA_ASSET), "{}").unwrap();
         assert!(corpus_asset(&corpus, REVIEW_SCHEMA_ASSET).is_err());
     }
 
-    fn write_valid_vrs(root: &Path) {
+    fn write_valid_intent(root: &Path) {
         fs::create_dir(root.join(".decisions")).unwrap();
         fs::write(
             root.join("requirements.md"),

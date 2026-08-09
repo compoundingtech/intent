@@ -5,20 +5,20 @@ Status: accepted
 ## Context
 
 Semantic-review fixtures now live under
-`context/vrs/15-evaluation/semantic-review/`. The next question is which first
+`intent/15-evaluation/semantic-review/`. The next question is which first
 fixtures should prove the baked review prompt and schema.
 
 The fixture set can start as a small smell matrix, a richer end-to-end scenario,
 a paired good/bad corpus for every artifact kind, or no fixtures until
-`axe vrs review` is implemented.
+`intent review` is implemented.
 
 ## Evidence and Argument
 
-The baked prompt delegates review judgment to the meta-VRS review-smell catalog.
+The baked prompt delegates review judgment to the root Intent contract review-smell catalog.
 The first fixtures should therefore exercise the highest-signal smells with
 one semantic concern per fixture. Narrow fixtures make prompt regressions easier
 to diagnose than one mixed scenario, and they avoid building a broad corpus
-before `axe vrs review` has production command wiring.
+before `intent review` has production command wiring.
 
 The selected smells cover core artifact-boundary drift: vision containing
 mechanism, requirements containing mechanism, specs containing decision
@@ -44,7 +44,7 @@ The first semantic-review fixture set is a minimal review-smell matrix:
 - `stale-delta`.
 
 Each fixture contains one primary expected semantic finding and uses the full
-`axe.vrs.review.v1` result shape.
+`axe.intent.review.v1` result shape.
 
 ## Consequences
 
