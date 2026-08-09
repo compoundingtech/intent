@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-VRS and `context/` docs open non-trivial sections with the clearest structural
+Intent and `context/` docs open non-trivial sections with the clearest structural
 representation, often a Mermaid diagram (see [03-spec](../03-spec/spec.md)).
 Diagrams have two render paths: an inline terminal/nvim ASCII preview
 (`mermaid-ascii`, which parses only flowchart/graph and a minimal

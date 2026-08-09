@@ -22,11 +22,11 @@ closed records, so an archive section would duplicate history.
 | --- | --- |
 | `implementation-delta.md` | Visible and simple, but tends to grow into a stale ledger. |
 | `.delta/DELTA-*.md` | Consistent with companion directories and makes current open divergence easy to prune. |
-| Planning-system tasks only | Avoids another VRS surface, but hides contract/reality drift from VRS readers. |
+| Planning-system tasks only | Avoids another Intent surface, but hides contract/reality drift from Intent readers. |
 
 ## Decision
 
-Track confirmed VRS/implementation divergence in a lazy `.delta/` companion
+Track confirmed Intent/implementation divergence in a lazy `.delta/` companion
 directory with one file per open delta. Delta records are current-state
-artifacts, not history; resolved or stale deltas are deleted after the VRS or
+artifacts, not history; resolved or stale deltas are deleted after the Intent or
 implementation is corrected.

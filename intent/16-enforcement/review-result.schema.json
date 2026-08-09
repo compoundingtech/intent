@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schickling.dev/schemas/axe.vrs.review.v1.json",
-  "title": "Axe VRS Semantic Review Result",
+  "$id": "https://schickling.dev/schemas/axe.intent.review.v1.json",
+  "title": "Intent CLI Semantic Review Result",
   "type": "object",
   "required": ["schema_version", "summary", "findings"],
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "axe.vrs.review.v1"
+      "const": "axe.intent.review.v1"
     },
     "summary": {
       "type": "string",
@@ -29,7 +29,7 @@
         "properties": {
           "rule": {
             "type": "string",
-            "pattern": "^VRS\\.REVIEW\\.[a-z0-9.-]+$"
+            "pattern": "^INTENT\\.REVIEW\\.[a-z0-9.-]+$"
           },
           "severity": {
             "type": "string",

@@ -1,6 +1,6 @@
-# VRS Evaluation — Spec
+# Intent Evaluation — Spec
 
-This document specifies isolated evaluation runs for VRS and VRS skills. It
+This document specifies isolated evaluation runs for Intent and Intent skills. It
 builds on [requirements.md](./requirements.md).
 
 ## Status
@@ -13,7 +13,7 @@ An eval scenario should be small enough to run quickly but rich enough to force
 artifact routing decisions:
 
 ```text
-/tmp/vrs-eval-<id>/
+/tmp/intent-eval-<id>/
   context/<scenario>/
     vision.md
     requirements.md
@@ -39,10 +39,10 @@ The scenario should include at least:
 
 ## Eval Procedure
 
-1. Read `context/vrs/` and `nixpkgs/ai/skills/grill-vrs.md`.
+1. Read `intent/` and `nixpkgs/ai/skills/grill-intent.md`.
 2. Create the scenario in a temporary directory outside tracked repo files.
-3. Apply the `grill-vrs` procedure as if shaping the scenario with a user.
-4. Produce the miniature VRS tree.
+3. Apply the `grill-intent` procedure as if shaping the scenario with a user.
+4. Produce the miniature Intent tree.
 5. Review the tree with the review-smell catalog.
 6. Report evidence-backed findings and classify each gap by owning artifact.
 
@@ -55,20 +55,20 @@ baked review prompt and result schema owned by
 
 Tracked fixtures are canonical inputs and expected outcomes, not eval run
 output. A semantic-review eval copies or materializes a fixture into an
-isolated temporary scenario before invoking `axe vrs review` through the Coding
+isolated temporary scenario before invoking `intent review` through the Coding
 Agent Invocation Contract. This preserves the isolated-eval requirement while
-keeping prompt-quality examples reviewable in the VRS tree.
+keeping prompt-quality examples reviewable in the Intent tree.
 
 Use semantic-review fixtures for:
 
-- known-good VRS examples that should produce no findings;
+- known-good Intent examples that should produce no findings;
 - known-bad examples for review-smell coverage;
 - edge cases where deterministic diagnostics should not be repeated as semantic
   findings;
 - cases that protect against prompt drift, schema drift, or overconfident
   findings when supplied context is insufficient.
 
-Use `context/coding-agents/14-axe/12-vrs/.experiments/` for command-integration
+Use `context/coding-agents/14-axe/12-intent/.experiments/` for command-integration
 prototypes that validate Axe or CAIC wiring rather than semantic-review quality.
 
 Fixture shape is validated before real semantic review runs. The first validator
@@ -95,7 +95,7 @@ when they detect known automated environments.
 ## Report Shape
 
 ```markdown
-# VRS Eval Report
+# Intent Eval Report
 
 Scenario: <name>
 Artifacts: <temp path>
@@ -107,12 +107,12 @@ Artifacts: <temp path>
 | Finding | Evidence | Owner | Recommendation |
 | --- | --- | --- | --- |
 
-## Suggested VRS Updates
+## Suggested Intent Updates
 ```
 
-Temporary eval artifacts are evidence, not normative VRS. Durable changes are
-applied to the real VRS tree only after review.
+Temporary eval artifacts are evidence, not normative Intent. Durable changes are
+applied to the real Intent tree only after review.
 
-When an eval creates a valid example and exposes a meta-VRS gap, preserve both:
+When an eval creates a valid example and exposes a root Intent contract gap, preserve both:
 the example demonstrates what worked, while the report classifies the gap by
-owning artifact and proposes the minimal durable VRS update.
+owning artifact and proposes the minimal durable Intent update.

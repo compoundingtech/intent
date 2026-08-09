@@ -4,14 +4,14 @@ Status: open
 
 ## Divergence
 
-`axe vrs review` is implemented and covered by fake-provider tests. Production
+`intent review` is implemented and covered by fake-provider tests. Production
 readiness is tracked per backend: the stock `codex` path has produced a
-semantic review report for a small VRS subsystem, while the stock `claude` path
+semantic review report for a small Intent subsystem, while the stock `claude` path
 still lacks an authenticated isolated real-provider report.
 
-## VRS
+## Intent
 
-- [spec.md](../spec.md) defines `axe vrs review` backend readiness as
+- [spec.md](../spec.md) defines `intent review` backend readiness as
   backend-scoped.
 - [0001-use-per-backend-review-readiness.md](../.decisions/0001-use-per-backend-review-readiness.md)
   records the readiness policy.
@@ -29,12 +29,12 @@ still lacks an authenticated isolated real-provider report.
 ## Evidence
 
 - Improved CAIC provider-failure diagnostics exposed Codex native schema
-  compatibility issues in the baked `axe.vrs.review.v1` schema.
+  compatibility issues in the baked `axe.intent.review.v1` schema.
 - After adding explicit string types and requiring `gate`,
-  `axe vrs review context/vrs/16-enforcement --backend codex
+  `intent review context/intent/16-enforcement --backend codex
   --timeout-seconds 180 --report ...` succeeded and wrote an
-  `axe.vrs.review.v1` report.
-- `axe vrs review context/vrs/16-enforcement --backend claude
+  `axe.intent.review.v1` report.
+- `intent review context/intent/16-enforcement --backend claude
   --timeout-seconds 180 --report ...` failed with CAIC `timeout` before writing
   a report.
 - Follow-up wrapper inspection found that the Claude command path passed
@@ -52,15 +52,15 @@ still lacks an authenticated isolated real-provider report.
   `ANTHROPIC_API_KEY` is present. The wrapper timeout class is covered by fake
   provider tests; the full real Claude report still requires API-key-backed
   isolated auth.
-- The VRS/Axe decision is to treat review production readiness per backend
+- The Intent/CLI decision is to treat review production readiness per backend
   rather than requiring every stock backend to pass before a proven backend can
   be used.
 
 ## Required Reconciliation
 
-- `axe vrs review --backend claude` should complete a bounded manual
-  real-provider eval against a small existing VRS subsystem using isolated auth
-  and write an `axe.vrs.review.v1` report.
+- `intent review --backend claude` should complete a bounded manual
+  real-provider eval against a small existing Intent subsystem using isolated auth
+  and write an `axe.intent.review.v1` report.
 - The successful Claude eval evidence should be captured under the relevant
   `.experiments/` directory before this delta is removed.
 - This delta does not block `codex` readiness. It blocks claiming Claude
@@ -73,5 +73,5 @@ update implementation
 ## Resolution Signal
 
 Delete this delta when a bounded manual `claude` run writes a schema-valid
-`axe.vrs.review.v1` report for a small existing VRS subsystem, and that report
+`axe.intent.review.v1` report for a small existing Intent subsystem, and that report
 is captured under the owning `.experiments/` directory.

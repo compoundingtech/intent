@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.fixture.v1",
+  "schema_version": "intent.semantic-review.fixture.v1",
   "id": "stale-delta",
   "purpose": "Detect completed work left in delta.",
-  "covers": ["VRS.REVIEW.delta.stale"],
+  "covers": ["INTENT.REVIEW.delta.stale"],
   "prompt_ref": "../../../16-enforcement/review-prompt.md",
   "schema_ref": "../../../16-enforcement/review-result.schema.json",
   "assertion_mode": "minimum",

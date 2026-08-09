@@ -1,4 +1,4 @@
-# Spec: intent CLI
+# Spec: Intent CLI
 
 This document specifies the `intent` command realization. It builds on
 [requirements.md](./requirements.md).
@@ -12,18 +12,18 @@ Draft.
 Defines:
 
 - `intent` command surface;
-- routing between the CLI, the VRS checker engine, Nix checks, and future Plan
+- routing between the CLI, the Intent checker engine, Nix checks, and future Plan
   evidence;
-- output schema and migration-ratchet behavior for deterministic VRS checks;
+- output schema and migration-ratchet behavior for deterministic Intent checks;
 - semantic review routing through the portable Coding Agent Invocation Contract.
 
 Does not define:
 
-- VRS artifact semantics, file contracts, review smells, or enforcement rules;
+- Intent artifact semantics, file contracts, review smells, or enforcement rules;
   see [intent](../../intent/) and
   [intent/16-enforcement](../../intent/16-enforcement/);
 - semantic LLM review rubric content beyond routing diagnostics;
-- future typed-source VRS authoring;
+- future typed-source Intent authoring;
 - Plan storage or workflow semantics.
 
 ## Architecture
@@ -31,25 +31,25 @@ Does not define:
 ```text
 human / coding agent / repo check
   -> intent
-       -> vrs-check engine
-            -> parse Markdown VRS artifacts
+       -> intent-check engine
+            -> parse Markdown Intent artifacts
             -> derive graph view
             -> run deterministic rules
             -> emit diagnostics
 
 Nix checks
-  -> vrs-check engine
+  -> intent-check engine
        -> blocking exit code for strict rules
 
 intent review
-  -> vrs-check engine diagnostics
+  -> intent-check engine diagnostics
   -> Coding Agent Invocation Contract
        -> provider backend in read-only review mode
        -> schema-validated semantic findings
 ```
 
 `intent` is an operator and agent UX. The checker engine is the reusable
-implementation boundary. Meta-VRS remains the semantic authority.
+implementation boundary. The root Intent contract remains the semantic authority.
 
 ## Command Surface
 
@@ -60,32 +60,32 @@ intent review [path] [--profile local|strict] [--backend <id>] [--coding-agent <
 intent review-fixtures [path] [--fixture <id>]... [--backend <id>] [--coding-agent <path>] [--json] [--report <path>]
 ```
 
-Default `path` is `context/vrs`, and
-`context/vrs/15-evaluation/semantic-review` for `review-fixtures`. The first
+Default `path` is the current directory, and
+`./15-evaluation/semantic-review` for `review-fixtures`. The first
 implemented surfaces are `check`, `graph`, `review`, and `review-fixtures`;
 `links`, `ids`, and `doctor` remain target surfaces for later implementation
-slices. Commands discover VRS nodes by walking for
-`requirements.md`, `spec.md`, known companion directories, and
-meta-VRS-supported child node shapes.
+slices. Commands discover Intent nodes by walking for
+`requirements.md`, `spec.md`, known companion directories, and child node shapes
+supported by the root Intent contract.
 
 ## Authority Routing
 
 | Command | Route | Authority |
 | --- | --- | --- |
-| `vrs check` | checker engine deterministic rules | Meta-VRS defines rules; checker evaluates |
-| `vrs links` | checker engine link pass | Git working tree/current commit |
-| `vrs ids` | checker engine ID pass | Meta-VRS ID contract |
-| `vrs graph` | checker engine graph extraction | Markdown VRS artifacts are source; graph is derived |
-| `vrs review` | checker diagnostics plus `$CODING_AGENT` review invocation | VRS/CLI own prompt and schema; Coding Agent Invocation Contract owns provider portability |
-| `vrs review-fixtures` | same review invocation over a materialized fixture copy, graded against fixture assertions | VRS evaluation owns fixtures and assertion semantics; the CLI owns the runner |
-| `vrs doctor` | CLI command plus checker metadata | CLI for UX; checker for rule/migration state |
+| `intent check` | checker engine deterministic rules | Root Intent contract defines rules; checker evaluates |
+| `intent links` | checker engine link pass | Git working tree/current commit |
+| `intent ids` | checker engine ID pass | Root Intent identifier contract |
+| `intent graph` | checker engine graph extraction | Markdown Intent artifacts are source; graph is derived |
+| `intent review` | checker diagnostics plus `$CODING_AGENT` review invocation | Intent/CLI own prompt and schema; Coding Agent Invocation Contract owns provider portability |
+| `intent review-fixtures` | same review invocation over a materialized fixture copy, graded against fixture assertions | Intent evaluation owns fixtures and assertion semantics; the CLI owns the runner |
+| `intent doctor` | CLI plus checker metadata | CLI for UX; checker for rule/migration state |
 | Nix check | checker engine strict profile | Nix check is blocking gate |
 
 ## Checker Engine Boundary
 
 The checker engine should be callable without the `intent` CLI. It owns:
 
-- filesystem discovery of VRS nodes;
+- filesystem discovery of Intent nodes;
 - Markdown parsing needed for deterministic rules;
 - ID definition and reference extraction;
 - local Markdown link and anchor resolution;
@@ -96,11 +96,10 @@ The checker engine should be callable without the `intent` CLI. It owns:
 
 The CLI owns:
 
-- CLI argument parsing;
+- subcommand and argument parsing;
 - problems-first human rendering;
-- stable command names and completion;
-- command telemetry;
-- exit-code mapping for operator commands.
+- schema-versioned machine output;
+- exit-code mapping.
 
 Nix owns:
 
@@ -135,11 +134,11 @@ Every command that reports findings emits the same diagnostic object in JSON:
 
 ```json
 {
-  "schema_version": "axe.vrs.diagnostic.v1",
-  "rule": "VRS.ENF.link.local-target",
+  "schema_version": "axe.intent.diagnostic.v1",
+  "rule": "INTENT.ENF.link.local-target",
   "severity": "warning",
   "gate": "transitional | blocking | advisory | review",
-  "artifact": "context/vrs/spec.md",
+  "artifact": "context/intent/spec.md",
   "owner": "16-enforcement",
   "range": { "line": 42, "column": 1 },
   "evidence": "Link target does not exist: ./missing.md",
@@ -168,27 +167,27 @@ finding is a local advisory, a migration warning, or a merge blocker.
 
 ## Initial Rule Set
 
-The first implementation calls a narrow meta-VRS enforcement subset:
+The first implementation calls a narrow subset of root Intent enforcement rules:
 
 1. local Markdown `.md` link existence;
-2. strict decision-record shape for `context/vrs/.decisions/`.
+2. strict decision-record shape for `context/intent/.decisions/`.
 
 Local link findings are transitional warnings in the `local` profile and
-blocking in the `strict` profile once the known corpus is clean. Meta-VRS
-decision-shape findings are blocking for the meta-VRS scope because the current
-meta-VRS decisions have been migrated to that shape. ID, wiki-link, delta, and
+blocking in the `strict` profile once the known corpus is clean. Root Intent
+decision-shape findings are blocking for the root contract because its current
+decisions have been migrated to that shape. ID, wiki-link, delta, and
 graph rules remain future deterministic primitives and must carry exit criteria
 when introduced.
 
 ## Derived Graph
 
 `intent graph --json` emits the mechanically extracted, resolvable subset of
-the VRS graph with a deliberately small v0 shape:
+the Intent graph with a deliberately small v0 shape:
 
 ```json
 {
-  "schema_version": "axe.vrs.graph.v0",
-  "root": "/repo/context/vrs",
+  "schema_version": "axe.intent.graph.v0",
+  "root": "/repo/context/intent",
   "nodes": [
     {
       "id": "file:requirements.md",
@@ -201,10 +200,10 @@ the VRS graph with a deliberately small v0 shape:
       "evidence": []
     },
     {
-      "id": "VRS-R27",
+      "id": "INTENT-R27",
       "kind": "requirement",
       "title": "Enforcement",
-      "path": "context/vrs/requirements.md",
+      "path": "context/intent/requirements.md",
       "status": "active",
       "refs": [],
       "refines": [],
@@ -214,7 +213,7 @@ the VRS graph with a deliberately small v0 shape:
   "edges": [
     {
       "source": "file:requirements.md",
-      "target": "VRS-R27",
+      "target": "INTENT-R27",
       "kind": "contains",
       "path": "requirements.md",
       "evidence": "structured-id"
@@ -235,7 +234,7 @@ Graph v0 extracts:
 | Fact | Representation |
 | --- | --- |
 | Markdown artifact | `file:<relative path>` node with `kind: "file"` |
-| Bold structured ID such as `**AXE.VRS-R08 Graph command:**` | ID node plus `contains` edge from the artifact |
+| Bold structured ID such as `**AXE.INTENT-R08 Graph command:**` | ID node plus `contains` edge from the artifact |
 | Local resolvable Markdown link to another Markdown artifact under the graph root | `markdown_link` edge between file nodes |
 | Wiki-style reference such as `[[Graph Backlog]]` | `wiki:<target>` node with `status: "unresolved"` plus `wikilink` edge |
 | Inline `refines: <ID>` text on a structured-ID line | `refines[]` on that ID node |
@@ -250,9 +249,9 @@ emits an ambiguous-structure diagnostic rather than inventing a node or edge.
 `intent review` runs semantic review after deterministic checks. It builds a
 bounded review packet from:
 
-- the baked VRS semantic-review prompt owned at
+- the baked Intent semantic-review prompt owned at
   [intent/16-enforcement/review-prompt.md](../../intent/16-enforcement/review-prompt.md);
-- the target VRS files;
+- the target Intent files;
 - `intent check --json` diagnostics;
 - the semantic review output schema at
   [intent/16-enforcement/review-result.schema.json](../../intent/16-enforcement/review-result.schema.json).
@@ -264,20 +263,20 @@ originating `schickling/dotfiles` repository):
 ```text
 $CODING_AGENT run \
   --cwd <repo-root> \
-  --prompt-file <baked-vrs-review-prompt> \
-  --context-file normative:<target-vrs-file>... \
-  --context-file generated-diagnostics:<axe-vrs-check-json> \
+  --prompt-file <baked-intent-review-prompt> \
+  --context-file normative:<target-intent-file>... \
+  --context-file generated-diagnostics:<intent-check-json> \
   --mode review \
   --permission read-only \
   --approval never \
   --config-policy isolated \
   --network-policy disabled \
   --output-format json \
-  --output-schema <vrs-review-result-schema>
+  --output-schema <intent-review-result-schema>
 ```
 
 Callers do not provide an arbitrary prompt. Prompt and schema changes happen in
-the VRS enforcement node and are validated through eval fixtures before becoming
+the Intent enforcement node and are validated through eval fixtures before becoming
 the baked review version.
 
 Provider readiness is checked before spending model tokens. `intent review`
@@ -293,25 +292,25 @@ known to the adapter and supports all of the requested contract pieces:
 | approval | `never`, fail-closed before provider execution if the backend may prompt |
 | config policy | `isolated` |
 | network policy | `disabled` for agent/tool/web access; provider model transport may still be required |
-| output | `json` plus schema validation for `axe.vrs.review.v1` |
+| output | `json` plus schema validation for `axe.intent.review.v1` |
 
 Known backend support is capability-based, not provider-name-based. If the
 default backend or a `--backend <id>` override is unknown, unavailable, missing
 one of these capabilities, or only supports a weaker permission/config/output
 contract, `intent review` fails before invoking the provider. The supported
-backend set may expand without changing the `intent` CLI contract as long as the
+backend set may expand without changing the Intent CLI contract as long as the
 backend satisfies these same readiness criteria.
 
 Production readiness is backend-scoped. A backend is ready for `intent review`
 when its capability preflight passes, token-free fake-provider regression tests
 cover its provider-specific command mapping, and at least one bounded manual
-real-provider run against a small existing VRS subsystem has produced a
-schema-valid `axe.vrs.review.v1` report. One backend's pending real-provider
+real-provider run against a small existing Intent subsystem has produced a
+schema-valid `axe.intent.review.v1` report. One backend's pending real-provider
 evidence does not block another backend that satisfies the same readiness
 criteria.
 
 Semantic findings use the diagnostic shape where possible, but their gate is
-`review` unless a later VRS decision makes a specific semantic rule blocking.
+`review` unless a later Intent decision makes a specific semantic rule blocking.
 Review mode must not write files or silently apply fixes.
 
 Any `intent review` or fixture-review mode that calls a real provider and
@@ -324,7 +323,7 @@ is that the command fails before provider invocation when it detects CI or other
 known automated environments.
 
 Output defaults to stdout. On success, stdout contains the CAIC JSON result
-envelope whose `result` field conforms to `axe.vrs.review.v1`; provider progress
+envelope whose `result` field conforms to `axe.intent.review.v1`; provider progress
 and human logs remain on stderr. `--report <path>` writes the same final JSON
 envelope to a caller-chosen path and leaves stdout empty on success, matching
 CAIC `--final-output` semantics. Tool or schema failures use the CAIC error
@@ -347,7 +346,7 @@ For each selected fixture it:
    both the review root and the coding-agent working directory, which makes the
    fixture-relative artifact paths in `assertions.json` the paths a review
    result reports;
-4. grades the returned `axe.vrs.review.v1` result against
+4. grades the returned `axe.intent.review.v1` result against
    `assertions.json`: every `minimum_findings` entry must be satisfied by some
    finding with the same `rule`, `severity`, `artifact`, and `owner`.
 
@@ -357,7 +356,7 @@ workspace-relative form; no suffix matching, so a finding routed to the wrong
 artifact fails. A fixture without `assertions.json` is reported as skipped
 rather than passed.
 
-The command emits an `axe.vrs.review-fixtures.v1` grading report with per-fixture
+The command emits an `axe.intent.review-fixtures.v1` grading report with per-fixture
 `matched` and `missing` assertions. Exit code 0 means every graded assertion was
 met, 1 means at least one fixture had unmet assertions, and 2 means a fixture
 review could not be run at all.
@@ -372,7 +371,7 @@ fake/probe providers.
 | Failure | Behavior |
 | --- | --- |
 | Path is outside repo | fail with path diagnostic |
-| No VRS node found | report no-scope diagnostic, exit nonzero for `check` |
+| No Intent node found | report no-scope diagnostic, exit nonzero for `check` |
 | Markdown parse issue | report artifact diagnostic with line evidence |
 | Broken link in strict profile | exit nonzero |
 | Transitional warning | render warning and exit success unless `--warnings-as-errors` |
@@ -388,17 +387,18 @@ fake/probe providers.
 Plan may record:
 
 - `intent check --json` output as evidence;
-- proposed VRS patches as review/proposed-patch records;
-- resolved durable learning routed to VRS artifacts.
+- proposed Intent patches as review/proposed-patch records;
+- resolved durable learning routed to Intent artifacts.
 
 Plan must not become the checker. It records evidence and work coordination
-around VRS changes; `vrs-check` and meta-VRS keep semantic ownership.
+around Intent changes; `intent-check` and the root Intent contract keep semantic
+ownership.
 
 ## Anti-Goals
 
-- Do not create a competing top-level `vrs` CLI until there is evidence that
-  users need one separate from `intent`.
-- Do not make the CLI the authority for VRS semantics.
+- Do not create a second CLI separate from `intent` without evidence that users
+  need one.
+- Do not make the CLI the authority for Intent semantics.
 - Do not make generated graph JSON authoritative.
 - Do not make warning-mode rules permanent.
-- Do not silently rewrite VRS artifacts.
+- Do not silently rewrite Intent artifacts.

@@ -49,15 +49,16 @@ claim is wrong far more often than it is checked.
 The checker is deterministic and consumer-agnostic: `intent/16-enforcement/`
 specifies the rules so that any tool can implement them, and the shipped binary
 is one such tool rather than the definition. Diagnostics carry a stable
-`VRS.ENF.<rule>` code, so a finding maps back to the rule that produced it —
+`INTENT.ENF.<rule>` code, so a finding maps back to the rule that produced it —
 match on the code, never on the message text.
 
-**Expect `axe`- and `vrs`-flavoured identifiers out of an `intent` binary.**
-Rule IDs (`AXE.VRS-R*`) and JSON `schema_version` values (`axe.vrs.check.v1`)
-carry earlier names. That is deliberate, not a packaging bug: identifiers are
-what external references and differential comparisons are keyed on, so they are
-held stable and renamed in one coordinated pass rather than drifting per
-release. Key your tooling on them as they are.
+**Treat identifier namespaces as public contracts.** CLI requirement IDs use
+`AXE.INTENT-R*`, checker rules use `INTENT.ENF.*`, and JSON
+schema versions use values such as `axe.intent.check.v1`. The `axe` component
+is a stable protocol/document namespace; `intent` names the layer, artifact
+system, and executable command.
+These identifiers changed together during the Intent-wide rename and have no
+compatibility aliases, so downstream tooling must match the current values.
 
 Run `--help` for the authoritative surface; the commands and what each answers:
 

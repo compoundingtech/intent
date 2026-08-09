@@ -11,7 +11,7 @@ unless clearly blocked.
 
 ## Evidence and Argument
 
-Initial VRS drafting naturally produces uncertainty and unexplored areas. A
+Initial Intent drafting naturally produces uncertainty and unexplored areas. A
 separate checklist artifact would add another file type that must later be
 cleaned up. `open-questions.md` already has lifecycle rules and can absorb
 temporary drafting coverage if agents apply resolution pressure before
@@ -27,6 +27,6 @@ finalizing.
 
 ## Decision
 
-Initial VRS drafting may use `open-questions.md` as the temporary coverage
-surface. Before finalizing VRS work, agents must try to resolve every question;
+Initial Intent drafting may use `open-questions.md` as the temporary coverage
+surface. Before finalizing Intent work, agents must try to resolve every question;
 any remaining question must name the blocker that prevents resolution.

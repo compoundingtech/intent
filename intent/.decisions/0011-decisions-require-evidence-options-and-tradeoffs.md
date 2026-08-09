@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-Earlier VRS decision records used a minimal "what and why" shape. That is useful
+Earlier Intent decision records used a minimal "what and why" shape. That is useful
 for low-friction capture, but it can let weakly justified choices harden into
 durable contract without showing why alternatives lost.
 
@@ -12,7 +12,7 @@ durable contract without showing why alternatives lost.
 
 The user explicitly wants each decision to show evidence for the best approach,
 principled options, proofs or arguments, tradeoffs, and the reason the selected
-option is best. This also matches the VRS goal of helping future readers avoid
+option is best. This also matches the Intent goal of helping future readers avoid
 re-litigating hidden reasoning.
 
 The user also clarified that evidence often should be plural: at least one
@@ -30,9 +30,9 @@ experiments plus user confirmation, or proofs plus implementation evidence.
 
 ## Decision
 
-VRS durable decision records must include evidence or argument, principled
+Intent durable decision records must include evidence or argument, principled
 options with tradeoffs, and a clear reason the chosen option is best under the
-current VRS context. They must include at least one applicable evidence form and
+current Intent context. They must include at least one applicable evidence form and
 should include multiple independent evidence forms when the decision is
 important, risky, or expensive to reverse. This keeps the record broad enough
 for non-architecture decisions while preventing unsupported choices from
@@ -88,7 +88,7 @@ attribution claims (who said X) as much as to factual ones: they are checkable
 in the record and are not a softer category.
 
 **Limit.** This is a discipline, not a gate. The companion enforcement in
-`context/vrs/.decisions/0033` constrains *citations* (an ordinal must resolve;
+`intent/.decisions/0033` constrains *citations* (an ordinal must resolve;
 a label must match its target); it cannot see a *claim* — prose asserting a
 fact about the tree passes every structural check while being false. The
 enforcement narrows what needs re-derivation; it does not remove the

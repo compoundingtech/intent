@@ -5,7 +5,7 @@ Status: accepted
 ## Context
 
 Semantic-review fixtures can be checked structurally today. Later,
-`axe vrs review` should run those fixtures through `$CODING_AGENT` and compare
+`intent review` should run those fixtures through `$CODING_AGENT` and compare
 the returned review result with expected behavior.
 
 The assertion question is whether real semantic-review evals should require

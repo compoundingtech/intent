@@ -1,9 +1,9 @@
 {
-  "schema_version": "axe.vrs.review.v1",
+  "schema_version": "axe.intent.review.v1",
   "summary": "1 semantic concern found.",
   "findings": [
     {
-      "rule": "VRS.REVIEW.open-questions.stale",
+      "rule": "INTENT.REVIEW.open-questions.stale",
       "severity": "warning",
       "gate": "review",
       "artifact": "input/context/stale-open-question/open-questions.md",

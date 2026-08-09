@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.fixture.v1",
+  "schema_version": "intent.semantic-review.fixture.v1",
   "id": "requirements-mechanism",
   "purpose": "Detect implementation mechanism in requirements.",
-  "covers": ["VRS.REVIEW.requirements.mechanism"],
+  "covers": ["INTENT.REVIEW.requirements.mechanism"],
   "prompt_ref": "../../../16-enforcement/review-prompt.md",
   "schema_ref": "../../../16-enforcement/review-result.schema.json",
   "assertion_mode": "minimum",

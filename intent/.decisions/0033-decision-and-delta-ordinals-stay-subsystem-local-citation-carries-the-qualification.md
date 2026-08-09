@@ -55,7 +55,7 @@ an allocation rule — a pure citation convention would leave the mechanism runn
 
 A bare ordinal is a subsystem-local name. Reading it as an identifier is legitimate
 only inside its own subsystem, and only if allocation keeps it unique there. Three
-rules make that true; `nix/scripts/vrs-id-check/vrs-id-check.ts` enforces all three
+rules make that true; `nix/scripts/intent-id-check/intent-id-check.ts` enforces all three
 against a ratcheting baseline, the same idiom as the link-resolution gate.
 
 **ALLOC — one ordinal, one file, per directory.** Within a `.decisions/` or `.delta/`

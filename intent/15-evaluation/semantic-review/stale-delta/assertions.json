@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.assertions.v1",
+  "schema_version": "intent.semantic-review.assertions.v1",
   "minimum_findings": [
     {
-      "rule": "VRS.REVIEW.delta.stale",
+      "rule": "INTENT.REVIEW.delta.stale",
       "severity": "warning",
       "artifact": "input/context/stale-delta/.delta/DELTA-001-review-command-missing.md",
       "owner": ".delta/"

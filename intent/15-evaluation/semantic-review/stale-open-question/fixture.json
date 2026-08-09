@@ -1,8 +1,8 @@
 {
-  "schema_version": "vrs.semantic-review.fixture.v1",
+  "schema_version": "intent.semantic-review.fixture.v1",
   "id": "stale-open-question",
   "purpose": "Detect resolved content left in open questions.",
-  "covers": ["VRS.REVIEW.open-questions.stale"],
+  "covers": ["INTENT.REVIEW.open-questions.stale"],
   "prompt_ref": "../../../16-enforcement/review-prompt.md",
   "schema_ref": "../../../16-enforcement/review-result.schema.json",
   "assertion_mode": "minimum",

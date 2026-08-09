@@ -4,8 +4,8 @@ Status: accepted
 
 ## Context
 
-`VRS.DEC-R10` confines proposed decision records to `.decisions/.proposed/`
-"during a PR only", and `VRS.DEC-R11` requires every proposed record to be
+`INTENT.DEC-R10` confines proposed decision records to `.decisions/.proposed/`
+"during a PR only", and `INTENT.DEC-R11` requires every proposed record to be
 accepted, folded into another artifact, moved to `open-questions.md`, or deleted
 **before merge**.
 
@@ -31,7 +31,7 @@ unenforced one becomes. Ten days unratified is already the graveyard failure the
 durable-state option would have had to design against, observed before the option
 was adopted.
 
-The principal's stated direction is that decisions touching VRS should route
+The principal's stated direction is that decisions touching Intent should route
 through the proposal mechanism with an explicit ratification step — which the
 existing contract already provides. What was missing was enforcement, not a new
 state.

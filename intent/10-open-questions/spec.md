@@ -1,4 +1,4 @@
-# VRS Open Questions — Spec
+# Intent Open Questions — Spec
 
 This document specifies `open-questions.md` files. It builds on
 [requirements.md](./requirements.md).
@@ -13,7 +13,7 @@ Draft.
 # <Topic> — Open Questions
 
 Only genuinely unresolved design questions. Resolved questions move to their
-owning VRS artifact or are deleted.
+owning Intent artifact or are deleted.
 
 ## DQ1: <Question>
 
@@ -31,7 +31,7 @@ Do not keep a resolved-question archive. Git history preserves prior questions.
 
 ## Drafting Coverage
 
-During initial VRS drafting, use `open-questions.md` to avoid losing coverage
+During initial Intent drafting, use `open-questions.md` to avoid losing coverage
 areas while the conversation or investigation dives deep into one branch.
 Coverage questions should be specific enough to act on:
 
@@ -43,7 +43,7 @@ Coverage questions should be specific enough to act on:
   operational constraint
 ```
 
-Before finalizing VRS work, walk every open question. Resolve it into the owning
+Before finalizing Intent work, walk every open question. Resolve it into the owning
 artifact when possible. Leave it open only if it has a clear blocker, and record
 that blocker in the question.
 

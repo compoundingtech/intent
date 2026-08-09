@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-VRS enforcement needs a first deterministic blocking rule after migration. The
+Intent enforcement needs a first deterministic blocking rule after migration. The
 candidates include local Markdown link existence, decision-record shape,
 proposed decision cleanup, and open-question blocker checks.
 
@@ -28,7 +28,7 @@ pretending to verify decision quality semantically.
 
 | Option | Tradeoffs |
 | --- | --- |
-| Make local Markdown link existence the first blocking rule | Low ambiguity and immediate value, but narrower than full VRS quality. |
+| Make local Markdown link existence the first blocking rule | Low ambiguity and immediate value, but narrower than full Intent quality. |
 | Make decision-record shape blocking immediately | Improves decision hygiene, but can incentivize decorative sections without evidence quality. |
 | Block only on `.decisions/.proposed/` | Very crisp, but too narrow to validate the broader checker path. |
 | Block on open-question blockers | Process-aligned, but too semantic for an early deterministic gate. |
@@ -42,7 +42,7 @@ useful and not mostly decorative.
 
 ## Consequences
 
-- `axe vrs` enforcement should prioritize local link discovery, resolution,
+- `intent` enforcement should prioritize local link discovery, resolution,
   diagnostics, allowlist calibration, and strict-mode promotion first.
 - Decision-record checks should start warning-only with explicit experiment
   criteria before becoming merge-blocking.

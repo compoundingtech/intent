@@ -1,24 +1,23 @@
 # intent
 
-Deterministic checks, graph extraction, and semantic review for a VRS corpus.
+Deterministic checks, graph extraction, and semantic review for an Intent corpus.
 
-The crate ships both a binary (`intent`) and a library. `axe vrs` embeds the
-library and calls `intent::run` directly, so the binary is a thin shell over the
-same entry point — anything that lived only in `main.rs` would be behavior the
-embedded caller silently does not get.
+The crate ships both a binary (`intent`) and a library. The binary is a thin
+shell that calls `intent::run`, keeping command behavior in the reusable library
+entry point rather than in `main.rs`.
 
 ## Commands
 
 | Command                  | What it does                                                     |
 | ------------------------ | ---------------------------------------------------------------- |
-| `intent check <root>`    | Deterministic VRS checks. `--profile strict\|local`, `--json`.    |
-| `intent graph <root>`    | Emits the derived VRS graph subset as JSON.                      |
+| `intent check <root>`    | Deterministic Intent checks. `--profile strict\|local`, `--json`.    |
+| `intent graph <root>`    | Emits the derived Intent graph subset as JSON.                      |
 | `intent review <root>`   | Semantic review via the Coding Agent Invocation Contract.        |
 | `intent review-fixtures` | Grades semantic review against evaluation-fixture assertions.    |
 
 ## `check` exiting 0 does not mean it read anything
 
-`intent check` on an empty directory, or on a path holding no VRS artifacts at all,
+`intent check` on an empty directory, or on a path holding no Intent artifacts at all,
 exits **0** with `"diagnostics": []`. `graph` exits 0 there too, with `"nodes": []`.
 Neither exit code distinguishes "the corpus is clean" from "the corpus is not
 there", so a CI gate built on the exit code alone passes just as happily against a
@@ -37,26 +36,23 @@ jq -e '(.nodes | length) > 0' graph.json   # this is what proves a corpus was re
 `.github/workflows/ci.yml` is the worked example. Copy the pair, not just the first
 half.
 
-## `axe`-flavoured identifiers in an `intent` binary
+## Identifier namespaces
 
-`check --json` reports `"schema_version": "axe.vrs.check.v1"`, diagnostics are
-prefixed `axe vrs check:` / `axe vrs review:`, and the corpus's own requirement ids
-are `AXE.VRS-R01..R19`. That is not an oversight.
+`check --json` reports `"schema_version": "axe.intent.check.v1"`, diagnostics are
+prefixed `intent check:` / `intent review:`, and the CLI contract's own
+requirement IDs are `AXE.INTENT-R01..R19`.
 
-Note the three are different surfaces, and it matters for anyone planning the rename
-below. The `AXE.VRS-R*` ids are **requirement ids in the VRS documents** — this
-binary never emits one. The `rule` field of a diagnostic carries a different
-vocabulary entirely (`VRS.ENF.link.local-target`, `VRS.ENF.delta-shape`, and four
-others). Only `schema_version` and the message prefixes are part of what a consumer
-parses.
+These are different surfaces. The `AXE.INTENT-R*` values are requirement IDs in
+the CLI documents; this binary never emits one. Diagnostic `rule` fields
+use the checker vocabulary (`INTENT.ENF.link.local-target`,
+`INTENT.ENF.delta-shape`, and related rules). Schema versions retain the `axe`
+producer namespace as a wire-contract identity, while every reference to the
+layer, artifact system, and executable command uses Intent.
 
-This crate was lifted out of `schickling/dotfiles`' `axe` binary, and the acceptance
-bar for the lift is that behaviour is byte-identical to `axe vrs` across every
-command. Renaming these strings now would destroy the differential oracle that
-proves the extraction was faithful, and `axe.vrs.check.v1` is a wire contract with a
-live consumer. They are carried to one coordinated rename pass — rule ids,
-`schema_version`, the schema `$id` host and the message prefixes together, never
-piecemeal.
+The Intent rename changes rule IDs, schema versions, schema `$id`, document
+grammar, and public Rust type names together. Consumers must update those
+machine-readable contracts as one breaking migration rather than depending on
+compatibility aliases.
 
 ## Enforcement assets resolve under the corpus, never the repository
 
@@ -82,7 +78,7 @@ missing and the corpus it was missing from:
 
 ```console
 $ intent review ./some-corpus
-axe vrs review: missing review asset 16-enforcement/review-prompt.md under corpus /abs/path/to/some-corpus
+intent review: missing review asset 16-enforcement/review-prompt.md under corpus /abs/path/to/some-corpus
 ```
 
 Naming both matters: the asset alone does not say which of several corpora was

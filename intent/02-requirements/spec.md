@@ -1,4 +1,4 @@
-# VRS Requirements — Spec
+# Intent Requirements — Spec
 
 This document specifies `requirements.md` files. It builds on
 [requirements.md](./requirements.md).
@@ -34,13 +34,13 @@ Draft.
 - **<NS>-R01 Short name:** ...
 ```
 
-Use a semantic namespace (`VRS`, `VRS.REQ`, `CVG.ACT`) when references cross
+Use a semantic namespace (`Intent`, `INTENT.REQ`, `CVG.ACT`) when references cross
 artifact, child-node, or project boundaries. Local IDs such as `R01` are
 acceptable inside one declared requirements scope when every reference is
 unambiguous from context. Numeric directory prefixes do not appear in IDs.
 
 IDs are not permanent public API. They may be renamed, renumbered, or re-scoped
-when the VRS shape improves, but the repository commit must remain atomically
+when the Intent shape improves, but the repository commit must remain atomically
 consistent: every reference in that commit resolves to the intended current
 artifact and clause.
 

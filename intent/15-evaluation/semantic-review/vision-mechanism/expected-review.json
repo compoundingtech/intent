@@ -1,9 +1,9 @@
 {
-  "schema_version": "axe.vrs.review.v1",
+  "schema_version": "axe.intent.review.v1",
   "summary": "1 semantic concern found.",
   "findings": [
     {
-      "rule": "VRS.REVIEW.vision.mechanism",
+      "rule": "INTENT.REVIEW.vision.mechanism",
       "severity": "warning",
       "gate": "review",
       "artifact": "input/context/vision-mechanism/vision.md",

@@ -4,13 +4,13 @@ Status: accepted
 
 ## Context
 
-After choosing `.delta/`, VRS needed to decide whether open deltas are merge
+After choosing `.delta/`, Intent needed to decide whether open deltas are merge
 blockers or accepted current-state documentation.
 
 ## Evidence and Argument
 
 The user confirmed that open deltas should be allowed on main. A delta is a
-truthful statement that VRS and implementation diverge; blocking all merges on
+truthful statement that Intent and implementation diverge; blocking all merges on
 known drift would incentivize hiding or deleting useful context. The risk is
 stale debt, which is handled by freshness rules rather than a blanket merge ban.
 
