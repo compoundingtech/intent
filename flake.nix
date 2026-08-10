@@ -39,7 +39,7 @@
           cargoLock.lockFile = ./crates/intent/Cargo.lock;
 
           # Builds and tests run inside the crate, while `src` stays the whole
-          # repository. That is deliberate: the corpus at `intent/` has to remain
+          # repository. That is deliberate: the corpus at `context/intent/` has to remain
           # visible so a check can be aimed at it from the same source tree.
           buildAndTestSubdir = crateDir;
 
@@ -128,7 +128,7 @@
         checks.reads-the-corpus = pkgs.runCommand "intent-reads-the-corpus-${version}" {
           nativeBuildInputs = [ pkgs.jq ];
         } ''
-          ${intent}/bin/intent graph ${self}/intent --json > graph.json
+          ${intent}/bin/intent graph ${self}/context/intent --json > graph.json
           nodes="$(jq '.nodes | length' graph.json)"
           echo "graph nodes: $nodes"
           jq -e '(.nodes | length) > 0' graph.json > /dev/null \

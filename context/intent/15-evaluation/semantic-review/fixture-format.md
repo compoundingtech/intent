@@ -8,7 +8,7 @@ owned by [16-enforcement](../../16-enforcement/spec.md).
 Each fixture should live in a stable, descriptive directory:
 
 ```text
-intent/15-evaluation/semantic-review/<fixture-slug>/
+context/intent/15-evaluation/semantic-review/<fixture-slug>/
   fixture.json
   input/
     context/<scenario>/

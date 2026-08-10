@@ -124,6 +124,15 @@ Choose A because it fits the current scope.
             .expect("intent check")
     }
 
+    fn check_at(&self, path: &Path, args: &[&str]) -> Output {
+        Command::new(&self.intent)
+            .arg("check")
+            .arg(path)
+            .args(args)
+            .output()
+            .expect("intent check")
+    }
+
     fn graph(&self, args: &[&str]) -> Output {
         Command::new(&self.intent)
             .arg("graph")
@@ -136,6 +145,32 @@ Choose A because it fits the current scope.
 
 fn stdout_json(output: &Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("stdout json")
+}
+
+#[test]
+fn help_advertises_the_default_root_the_run_will_use() {
+    let h = Harness::new();
+    for (subcommand, expected) in [
+        ("check", "[default: .]"),
+        ("graph", "[default: .]"),
+        ("review", "[default: .]"),
+        (
+            "review-fixtures",
+            "[default: ./15-evaluation/semantic-review]",
+        ),
+    ] {
+        let output = Command::new(&h.intent)
+            .arg(subcommand)
+            .arg("--help")
+            .output()
+            .expect("intent --help");
+        assert!(output.status.success());
+        let help = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            help.contains(expected),
+            "`{subcommand} --help` must advertise {expected}; help:\n{help}"
+        );
+    }
 }
 
 fn write_executable(path: &Path, body: &str) -> PathBuf {
@@ -304,6 +339,45 @@ No comparison table.
                 .unwrap()
                 .ends_with("0002-bad.md")
     }));
+}
+
+#[test]
+fn decision_shape_is_enforced_when_check_is_aimed_at_the_repository_root() {
+    let h = Harness::new();
+    fs::write(
+        h.repo.join("context/intent/.decisions/0002-bad.md"),
+        r#"# Bad Decision
+
+Status:
+
+## Context
+
+Present.
+
+## Options
+
+No comparison table.
+
+## Decision
+"#,
+    )
+    .expect("bad decision");
+
+    let output = h.check_at(&h.repo, &["--json"]);
+    let report = stdout_json(&output);
+    let diagnostics = report["diagnostics"].as_array().unwrap();
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic["rule"] == "INTENT.ENF.meta-decision-shape"
+                && diagnostic["artifact"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with("0002-bad.md")
+        }),
+        "a malformed decision must be reported when check is aimed at the repository root; diagnostics:\n{}",
+        serde_json::to_string_pretty(&report["diagnostics"]).unwrap()
+    );
+    assert_eq!(output.status.code(), Some(1));
 }
 
 #[test]

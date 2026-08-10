@@ -1,17 +1,17 @@
 ---
-description: Author, review, and check an `intent/` corpus — the durable-intent doc contract — from any project, no fleet tooling assumed. Covers the artifact set, the `intent` CLI, and the failure modes that make a passing check prove nothing. Use when writing or reviewing intent artifacts, adopting the contract elsewhere, or wiring the checker into CI.
+description: Author, review, and check a `context/intent/` corpus — the durable-intent doc contract — from any project, no fleet tooling assumed. Covers the artifact set, the `intent` CLI, and the failure modes that make a passing check prove nothing. Use when writing or reviewing intent artifacts, adopting the contract elsewhere, or wiring the checker into CI.
 agents: [coding]
 ---
 
 # intent — authoring and checking the contract
 
-The contract is specified in `intent/`, and `intent/` is written in the
+The contract is specified in `context/intent/`, and `context/intent/` is written in the
 conventions it specifies. That makes the corpus the authority and this skill a
 guide to using it — read the corpus for the rules, read this for how to work
 against them and where the tooling will mislead you.
 
-Start at `intent/vision.md`, `intent/requirements.md`, `intent/spec.md`,
-`intent/ontology.md`. Each numbered directory specifies exactly one artifact
+Start at `context/intent/vision.md`, `context/intent/requirements.md`, `context/intent/spec.md`,
+`context/intent/ontology.md`. Each numbered directory specifies exactly one artifact
 type and is itself a small intent tree; go to the one matching the artifact you
 are writing. Do not reconstruct the rules from this file — it deliberately does
 not restate them, so it cannot drift from them.
@@ -46,7 +46,7 @@ claim is wrong far more often than it is checked.
 
 ## The checker
 
-The checker is deterministic and consumer-agnostic: `intent/16-enforcement/`
+The checker is deterministic and consumer-agnostic: `context/intent/16-enforcement/`
 specifies the rules so that any tool can implement them, and the shipped binary
 is one such tool rather than the definition. Diagnostics carry a stable
 `INTENT.ENF.<rule>` code, so a finding maps back to the rule that produced it —
@@ -144,7 +144,7 @@ them and the checker is optional at authoring time.
 Adopt in this order:
 
 1. **Copy the discipline, not the corpus.** Take the artifact set and the
-   ownership rule. `intent/`'s own content is about the contract itself and is
+   ownership rule. `context/intent/`'s own content is about the contract itself and is
    not a template for your domain.
 2. **Start with `requirements.md` + `spec.md`.** Add `vision.md` only when the
    "why" is not obvious from context, `ontology.md` once terms are being used

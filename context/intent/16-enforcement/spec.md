@@ -103,7 +103,7 @@ the proposed strict shape, but the wider `context/**/.decisions` corpus is not
 ready for repo-wide blocking without migration or scoped enforcement.
 
 Initial strict decision-shape enforcement applies only to
-`intent/.decisions/`. Other `context/**/.decisions/` records may be scanned
+`context/intent/.decisions/`. Other `context/**/.decisions/` records may be scanned
 for migration diagnostics later, but they are not part of the first strict
 decision-shape scope.
 
@@ -138,7 +138,7 @@ mode; prompt and schema changes are Intent changes and should be evaluated throu
 fixtures before becoming the baked version.
 
 Real-provider execution policy is owned by the
-[Intent command spec](../../context/cli/spec.md). Enforcement
+[Intent command spec](../../cli/spec.md). Enforcement
 owns the baked prompt, result schema, semantic finding shape, and fixture-backed
 quality evidence. The command spec owns when providers may run, which CAIC
 contract pieces are required, and how stdout/report routing behaves.
@@ -152,7 +152,7 @@ Structured enforcement output should preserve enough routing context for agents:
   "kind": "deterministic | semantic",
   "severity": "error | warning | info",
   "gate": "blocking | advisory | review",
-  "artifact": "intent/requirements.md",
+  "artifact": "context/intent/requirements.md",
   "owner": "02-requirements",
   "rule": "INTENT.ENF.<rule-id>",
   "evidence": "Requirement IDs skip INTENT-R12.",

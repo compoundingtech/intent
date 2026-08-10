@@ -247,7 +247,7 @@ validate assumptions, compare against code and references, and update the
 correct Intent artifact as understanding crystallizes.
 
 The procedure must not duplicate detailed artifact rules that live in
-`intent/`; it should point to the root Intent contract and stay focused on how
+`context/intent/`; it should point to the root Intent contract and stay focused on how
 to conduct the interview.
 
 Ontology handling is part of `grill-intent`, not a separate skill by default.

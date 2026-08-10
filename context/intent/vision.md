@@ -39,4 +39,4 @@ working state.
 3. Proposed decisions, experiments, references, and deltas have clear lifecycles
    and do not pollute the durable contract.
 4. Operational skills such as `intent.md` and `grill-intent` can become thin
-   procedures over the normative `intent/` contract.
+   procedures over the normative `context/intent/` contract.

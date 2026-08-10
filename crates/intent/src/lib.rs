@@ -1,12 +1,14 @@
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeSet, HashSet};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+const CORPUS: &str = "context/intent";
 
 // Positions INSIDE a corpus, so they hold for any repository that adopts the
 // layout. Resolving the review assets relative to the corpus root rather than the
@@ -214,6 +216,30 @@ impl Defaults {
     fn fixtures_or_default(&self, arg: Option<PathBuf>) -> PathBuf {
         arg.unwrap_or_else(|| self.corpus_root.join(SEMANTIC_REVIEW_SUBDIR))
     }
+
+    pub fn command(&self) -> clap::Command {
+        let root = self.corpus_root.clone().into_os_string();
+        let fixtures = self
+            .corpus_root
+            .join(SEMANTIC_REVIEW_SUBDIR)
+            .into_os_string();
+        IntentCli::command()
+            .mut_subcommand("check", |cmd| default_root(cmd, root.clone()))
+            .mut_subcommand("graph", |cmd| default_root(cmd, root.clone()))
+            .mut_subcommand("review", |cmd| default_root(cmd, root))
+            .mut_subcommand("review-fixtures", |cmd| default_root(cmd, fixtures))
+    }
+
+    pub fn parse(&self) -> IntentCli {
+        match IntentCli::from_arg_matches_mut(&mut self.command().get_matches()) {
+            Ok(cli) => cli,
+            Err(error) => error.exit(),
+        }
+    }
+}
+
+fn default_root(cmd: clap::Command, value: OsString) -> clap::Command {
+    cmd.mut_arg("root", |arg| arg.default_value(value))
 }
 
 impl Default for Defaults {
@@ -1198,12 +1224,12 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
     })
 }
 
-// Corpus-relative only. A removed fallback guessed a repository-specific
-// `.decisions` path when handed a repository root. That was silently wrong for
-// other layouts and let a misaimed invocation look clean. Pointing this at a
-// corpus is the caller's job.
 fn root_intent_decision_dir(root: &Path) -> PathBuf {
-    root.join(".decisions")
+    let direct = root.join(".decisions");
+    if direct.is_dir() {
+        return direct;
+    }
+    root.join(CORPUS).join(".decisions")
 }
 
 fn check_markdown_links(
@@ -1623,13 +1649,11 @@ fn markdown_files_direct(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error:
 /// artifacts may not escape.
 ///
 /// This is still repository-scoped rather than corpus-scoped: a reviewer reasoning
-/// about a corpus needs the repository around it. A removed repository-specific
-/// sentinel was only reached when `.git` was absent. Falling back to the corpus
-/// root keeps that no-`.git` case working without teaching the tool a repository
-/// layout.
+/// about a corpus needs the repository around it. In exported trees and build
+/// sandboxes without `.git`, the canonical corpus position identifies that boundary.
 fn review_workspace(root: &Path) -> PathBuf {
     for ancestor in root.ancestors() {
-        if ancestor.join(".git").exists() {
+        if ancestor.join(".git").exists() || ancestor.join(CORPUS).is_dir() {
             return ancestor.to_path_buf();
         }
     }
@@ -2263,6 +2287,21 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_callers_default_reaches_the_help_it_renders() {
+        let defaults = Defaults::corpus_root("context/intent");
+        let check = defaults
+            .command()
+            .find_subcommand_mut("check")
+            .expect("check subcommand")
+            .render_help()
+            .to_string();
+        assert!(
+            check.contains("[default: context/intent]"),
+            "help:\n{check}"
+        );
+    }
+
     // Covers the fallback used when there is no `.git`, such as a Nix build
     // sandbox or vendored source tree. Interactive runs normally take the
     // enclosing-repository branch instead.
@@ -2273,6 +2312,16 @@ mod tests {
         fs::create_dir_all(&corpus).unwrap();
 
         assert_eq!(review_workspace(&corpus), corpus);
+    }
+
+    #[test]
+    fn review_workspace_finds_the_repository_by_corpus_layout_when_there_is_no_git() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let repo = fs::canonicalize(tempdir.path()).unwrap();
+        let corpus = repo.join("context/intent");
+        fs::create_dir_all(&corpus).unwrap();
+
+        assert_eq!(review_workspace(&corpus), repo);
     }
 
     #[test]
