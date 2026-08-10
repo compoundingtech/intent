@@ -20,8 +20,8 @@ Defines:
 Does not define:
 
 - Intent artifact semantics, file contracts, review smells, or enforcement rules;
-  see [intent](../../intent/) and
-  [intent/16-enforcement](../../intent/16-enforcement/);
+  see [intent](../intent/) and
+  [intent/16-enforcement](../intent/16-enforcement/);
 - semantic LLM review rubric content beyond routing diagnostics;
 - future typed-source Intent authoring;
 - Plan storage or workflow semantics.
@@ -250,11 +250,11 @@ emits an ambiguous-structure diagnostic rather than inventing a node or edge.
 bounded review packet from:
 
 - the baked Intent semantic-review prompt owned at
-  [intent/16-enforcement/review-prompt.md](../../intent/16-enforcement/review-prompt.md);
+  [intent/16-enforcement/review-prompt.md](../intent/16-enforcement/review-prompt.md);
 - the target Intent files;
 - `intent check --json` diagnostics;
 - the semantic review output schema at
-  [intent/16-enforcement/review-result.schema.json](../../intent/16-enforcement/review-result.schema.json).
+  [intent/16-enforcement/review-result.schema.json](../intent/16-enforcement/review-result.schema.json).
 
 The command invokes `$CODING_AGENT` through the Coding Agent Invocation Contract
 (specified in `context/coding-agents/22-invocation-contract/spec.md` in the
@@ -333,7 +333,7 @@ not imply a nonzero exit code unless a future explicit fail policy is added.
 ## Fixture Review Grading
 
 `intent review-fixtures` is the runner for the semantic-review fixtures owned by
-[intent/15-evaluation](../../intent/15-evaluation/spec.md). It exists so the
+[intent/15-evaluation](../intent/15-evaluation/spec.md). It exists so the
 minimum-assertion contract is executable rather than descriptive.
 
 For each selected fixture it:

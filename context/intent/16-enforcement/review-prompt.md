@@ -33,7 +33,7 @@ Classify semantic Intent issues that deterministic lint cannot prove safely:
 - Empty companion directories or README-style Intent entry points appear where the
   root Intent contract does not allow them.
 
-Use the review-smell catalog in `intent/13-review-smells/spec.md` as the
+Use the review-smell catalog in `context/intent/13-review-smells/spec.md` as the
 primary rubric when it is supplied.
 
 ## Finding Rules

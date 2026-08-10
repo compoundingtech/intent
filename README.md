@@ -10,9 +10,9 @@ people who were there. The problem is not that the knowledge is missing; it is
 that nothing says which of those places is authoritative, so none of them can be
 trusted, and none can be checked.
 
-`intent/` is that contract, specified in itself. The corpus in this repository
-uses its own conventions to define its own conventions — `intent/vision.md` is a
-vision document written to the rules that `intent/01-vision/` specifies.
+`context/intent/` is that contract, specified in itself. The corpus in this repository
+uses its own conventions to define its own conventions — `context/intent/vision.md` is a
+vision document written to the rules that `context/intent/01-vision/` specifies.
 
 ## What it is for
 
@@ -37,10 +37,10 @@ the middle of the specification.
 
 Read in this order:
 
-1. **`intent/vision.md`** — what this is and what it deliberately is not.
-2. **`intent/requirements.md`** — the constraints the contract holds itself to.
-3. **`intent/spec.md`** — how the artifacts fit together.
-4. **`intent/ontology.md`** — the vocabulary. Worth reading early; the terms are
+1. **`context/intent/vision.md`** — what this is and what it deliberately is not.
+2. **`context/intent/requirements.md`** — the constraints the contract holds itself to.
+3. **`context/intent/spec.md`** — how the artifacts fit together.
+4. **`context/intent/ontology.md`** — the vocabulary. Worth reading early; the terms are
    used precisely and the precision is the point.
 
 Then follow whichever numbered section matches the artifact you care about.

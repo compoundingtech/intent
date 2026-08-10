@@ -10,7 +10,7 @@
 
 ### Must Apply Intent, Not Redefine It
 
-- **INTENT.GRILL-R01 Intent contract source:** `intent/` is the source of truth
+- **INTENT.GRILL-R01 Intent contract source:** `context/intent/` is the source of truth
   for artifact structure, lifecycle, and review rules.
 - **INTENT.GRILL-R02 Procedural skill:** `grill-intent` owns the interview procedure:
   questioning, pressure-testing, validation, and inline Intent updates.

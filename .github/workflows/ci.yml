@@ -60,12 +60,12 @@ jobs:
         # corpus from a missing one. Fail on absence explicitly, before checking.
         run: |
           set -euo pipefail
-          test -d intent || { echo "::error::corpus directory 'intent/' does not exist"; exit 1; }
+          test -d context/intent || { echo "::error::corpus directory 'context/intent/' does not exist"; exit 1; }
 
       - name: strict check reports no diagnostics
         run: |
           set -euo pipefail
-          ./target/release/intent check intent --profile strict --json > report.json || {
+          ./target/release/intent check context/intent --profile strict --json > report.json || {
             cat report.json >&2; exit 1;
           }
           jq -e '
@@ -81,7 +81,7 @@ jobs:
         # a wrong path, and non-empty only when artifacts were genuinely read.
         run: |
           set -euo pipefail
-          ./target/release/intent graph intent --json > graph.json
+          ./target/release/intent graph context/intent --json > graph.json
           nodes="$(jq '.nodes | length' graph.json)"
           echo "graph nodes: $nodes"
           jq -e '(.nodes | length) > 0' graph.json > /dev/null \
@@ -97,8 +97,8 @@ jobs:
       - name: fixtures and the enforcement schema are present
         run: |
           set -euo pipefail
-          fixtures="intent/15-evaluation/semantic-review"
-          schema="intent/16-enforcement/review-result.schema.json"
+          fixtures="context/intent/15-evaluation/semantic-review"
+          schema="context/intent/16-enforcement/review-result.schema.json"
           test -d "$fixtures" || { echo "::error::missing fixtures root: $fixtures"; exit 1; }
           test -f "$fixtures/fixture-format.md" || { echo "::error::missing fixture-format.md"; exit 1; }
           test -f "$schema" || { echo "::error::missing review-result schema: $schema"; exit 1; }
@@ -107,8 +107,8 @@ jobs:
         # Fully offline: every schema is a local file, so none is ever fetched.
         run: |
           set -euo pipefail
-          fixtures="intent/15-evaluation/semantic-review"
-          schema="intent/16-enforcement/review-result.schema.json"
+          fixtures="context/intent/15-evaluation/semantic-review"
+          schema="context/intent/16-enforcement/review-result.schema.json"
           found=0
           for fixture in "$fixtures"/*/; do
             [ -d "$fixture" ] || continue

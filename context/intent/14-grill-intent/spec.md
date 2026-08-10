@@ -10,7 +10,7 @@ Draft.
 ## Relationship
 
 ```text
-intent/        normative intent-layer contract
+context/intent/        normative intent-layer contract
 grill-intent           procedure that interrogates and updates the contract
 ```
 
@@ -34,6 +34,6 @@ arrives at those facts with a human or through code/research investigation.
 ## Skill Reduction
 
 When the operational skill is updated, it should keep procedural rules and link
-to `intent/` for artifact details. The skill should not carry independent
+to `context/intent/` for artifact details. The skill should not carry independent
 templates for decisions, ontology, requirements, experiments, deltas, or roadmap
 when the root Intent contract already defines them.

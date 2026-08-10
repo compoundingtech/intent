@@ -4,14 +4,14 @@
 
 This document defines testable constraints for the `intent` CLI: Intent hygiene,
 graph extraction, and enforcement diagnostics. It builds on the enforcement contract in
-[intent/16-enforcement](../../intent/16-enforcement/).
+[intent/16-enforcement](../intent/16-enforcement/).
 
 The `AXE.INTENT-*` requirement namespace is a stable document identifier carried
 from the originating CLI contract; it does not name an executable command.
 
 ## Assumptions
 
-- **A01 Intent owns semantics:** The root contract in [intent](../../intent/)
+- **A01 Intent owns semantics:** The root contract in [intent](../intent/)
   owns artifact semantics, file contracts, review smells, and enforcement rules.
 - **A02 CLI owns operator ergonomics:** `intent` gives humans and agents one
   discoverable command surface for Intent checks without making the CLI the

@@ -39,7 +39,7 @@ The scenario should include at least:
 
 ## Eval Procedure
 
-1. Read `intent/` and `nixpkgs/ai/skills/grill-intent.md`.
+1. Read `context/intent/` and `nixpkgs/ai/skills/grill-intent.md`.
 2. Create the scenario in a temporary directory outside tracked repo files.
 3. Apply the `grill-intent` procedure as if shaping the scenario with a user.
 4. Produce the miniature Intent tree.
