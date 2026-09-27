@@ -265,7 +265,7 @@ fn graph_json_exposes_files_ids_links_and_wikilinks() {
 }
 
 #[test]
-fn graph_json_records_each_local_markdown_link_with_resolution_and_locations() {
+fn graph_json_records_local_and_external_markdown_links() {
     let h = Harness::new();
     fs::write(
         h.repo.join("context/intent/requirements.md"),
@@ -274,7 +274,7 @@ fn graph_json_records_each_local_markdown_link_with_resolution_and_locations() {
     .expect("requirements");
     fs::write(
         h.repo.join("context/intent/spec.md"),
-        "# Spec\n\nSee π [the requirement](./requirements.md#local-target), [missing](./missing.md), and [external](https://example.com/docs).\n",
+        "# Spec\n\nSee π [the requirement](./requirements.md#local-target), [missing](./missing.md), and [Decision 0042](https://github.com/compoundingtech/intent/commit/9561206).\n",
     )
     .expect("spec");
 
@@ -292,11 +292,7 @@ fn graph_json_records_each_local_markdown_link_with_resolution_and_locations() {
         .iter()
         .filter(|reference| reference["syntax"] == "markdown_link")
         .collect::<Vec<_>>();
-    assert_eq!(
-        links.len(),
-        2,
-        "external URLs are not local link references"
-    );
+    assert_eq!(links.len(), 3);
 
     let resolved = links
         .iter()
@@ -324,6 +320,18 @@ fn graph_json_records_each_local_markdown_link_with_resolution_and_locations() {
     assert_eq!(dangling["resolution"], "dangling");
     assert_eq!(dangling["resolved_target"], "context/intent/missing.md");
     assert!(dangling["target_locations"].as_array().unwrap().is_empty());
+
+    let external = links
+        .iter()
+        .find(|reference| {
+            reference["written_target"]
+                == "https://github.com/compoundingtech/intent/commit/9561206"
+        })
+        .unwrap();
+    assert_eq!(external["label"], "Decision 0042");
+    assert_eq!(external["resolution"], "external");
+    assert!(external["target_locations"].as_array().unwrap().is_empty());
+    assert!(external.get("resolved_target").is_none());
 }
 
 #[test]
