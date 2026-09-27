@@ -156,7 +156,7 @@ pub(super) fn build(
     let definitions_by_id = group_definitions(&definitions);
     let companions = documents
         .iter()
-        .filter_map(|document| companion_for(corpus_root, &repository_root, document))
+        .filter_map(|document| companion_for(&repository_root, document))
         .collect::<Vec<_>>();
     let companions_by_ordinal = group_companions(&companions);
     let companion_by_path = companions
@@ -341,11 +341,7 @@ fn group_definitions(definitions: &[Definition]) -> BTreeMap<String, Vec<Definit
     grouped
 }
 
-fn companion_for(
-    corpus_root: &Path,
-    repository_root: &Path,
-    document: &Document,
-) -> Option<Companion> {
+fn companion_for(repository_root: &Path, document: &Document) -> Option<Companion> {
     let parent = document.path.parent()?;
     let directory = parent.file_name()?.to_str()?;
     let file_name = document.path.file_name()?.to_str()?;
@@ -355,12 +351,7 @@ fn companion_for(
             normalize_decision_ordinal(digits?)?,
             parent.parent()?.to_path_buf(),
         )
-    } else if directory == ".delta" {
-        (
-            normalize_delta_ordinal(file_name.strip_prefix("DELTA-")?.split('-').next()?)?,
-            parent.parent()?.to_path_buf(),
-        )
-    } else if is_meta_delta_directory(corpus_root, parent) {
+    } else if directory == ".delta" || directory == "09-delta" {
         (
             normalize_delta_ordinal(file_name.strip_prefix("DELTA-")?.split('-').next()?)?,
             parent.parent()?.to_path_buf(),
@@ -375,12 +366,6 @@ fn companion_for(
         path: document.path.clone(),
         repo_path: relative_display(repository_root, &document.path),
         location: document.location(0..first_line_end(&document.content)),
-    })
-}
-
-fn is_meta_delta_directory(corpus_root: &Path, directory: &Path) -> bool {
-    directory.strip_prefix(corpus_root).is_ok_and(|relative| {
-        relative == Path::new("vrs/09-delta") || relative == Path::new("09-delta")
     })
 }
 
