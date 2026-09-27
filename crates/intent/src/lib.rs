@@ -1844,7 +1844,6 @@ fn wikilinks_in_line(line: &str) -> Vec<String> {
     links
 }
 
-
 fn looks_like_intent_id(value: &str) -> bool {
     value.len() >= 2
         && value.chars().any(|ch| ch.is_ascii_digit())
@@ -1872,9 +1871,11 @@ fn refines_in_text(text: &str) -> Vec<String> {
 }
 
 fn graph_id_kind(id: &str) -> &'static str {
-    let local_kind = id.as_bytes().first().copied().filter(|_| {
-        id.len() == 3 && id.as_bytes()[1..].iter().all(u8::is_ascii_digit)
-    });
+    let local_kind = id
+        .as_bytes()
+        .first()
+        .copied()
+        .filter(|_| id.len() == 3 && id.as_bytes()[1..].iter().all(u8::is_ascii_digit));
     if local_kind == Some(b'R') || id.contains("-R") {
         "requirement"
     } else if local_kind == Some(b'A') || id.contains("-A") {

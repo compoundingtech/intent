@@ -481,9 +481,9 @@ fn graph_json_recognizes_all_supported_requirement_definition_forms() {
         ("R03", "requirement", "R03"),
     ] {
         assert!(
-            nodes.iter().any(|node| {
-                node["id"] == id && node["kind"] == kind && node["title"] == title
-            }),
+            nodes
+                .iter()
+                .any(|node| { node["id"] == id && node["kind"] == kind && node["title"] == title }),
             "missing {kind} node {id}"
         );
     }

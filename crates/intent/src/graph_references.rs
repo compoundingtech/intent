@@ -312,15 +312,13 @@ fn definition_occurrences(document: &Document) -> Vec<IdOccurrence> {
             };
             let marker_offset = trimmed.len() - after_marker.len();
             after_marker.strip_prefix("**")?;
-            structured_id_at(
-                &document.content,
-                line_start + indentation + marker_offset,
+            structured_id_at(&document.content, line_start + indentation + marker_offset).map(
+                |definition| IdOccurrence {
+                    written: definition.id.clone(),
+                    normalized: definition.id.to_ascii_uppercase(),
+                    range: definition.range,
+                },
             )
-            .map(|definition| IdOccurrence {
-                written: definition.id.clone(),
-                normalized: definition.id.to_ascii_uppercase(),
-                range: definition.range,
-            })
         })
         .collect()
 }
@@ -374,10 +372,7 @@ fn structured_id_at(content: &str, bold_start: usize) -> Option<StructuredId> {
     let evidence_start = content[..bold_start]
         .rfind('\n')
         .map_or(0, |offset| offset + 1);
-    let evidence = content
-        .get(evidence_start..rest_end)?
-        .trim()
-        .to_string();
+    let evidence = content.get(evidence_start..rest_end)?.trim().to_string();
 
     Some(StructuredId {
         id: id.to_string(),
