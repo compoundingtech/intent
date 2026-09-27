@@ -274,7 +274,7 @@ fn graph_json_records_local_and_external_markdown_links() {
     .expect("requirements");
     fs::write(
         h.repo.join("context/intent/spec.md"),
-        "# Spec\n\nSee π [the requirement](./requirements.md#local-target), [missing](./missing.md), and [Decision 0042](https://github.com/compoundingtech/intent/blob/9561206/context/vrs/.decisions/0042.md).\n",
+        "# Spec\n\nSee π [the requirement](./requirements.md#local-target), [missing](./missing.md), and [Decision 0042](https://github.com/compoundingtech/intent/commit/9561206).\n",
     )
     .expect("spec");
 
@@ -325,7 +325,7 @@ fn graph_json_records_local_and_external_markdown_links() {
         .iter()
         .find(|reference| {
             reference["written_target"]
-                == "https://github.com/compoundingtech/intent/blob/9561206/context/vrs/.decisions/0042.md"
+                == "https://github.com/compoundingtech/intent/commit/9561206"
         })
         .unwrap();
     assert_eq!(external["label"], "Decision 0042");
