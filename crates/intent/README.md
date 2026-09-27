@@ -15,6 +15,16 @@ entry point rather than in `main.rs`.
 | `intent review <root>`   | Semantic review via the Coding Agent Invocation Contract.        |
 | `intent review-fixtures` | Grades semantic review against evaluation-fixture assertions.    |
 
+
+## Embedding fixture grading
+
+Embedders that own their command's wire namespace call
+`grade_review_fixtures(&ReviewFixturesArgs, &Defaults)` to receive a
+`FixtureGradingReport` without writing stdout or a report file. They may then
+set `schema_version` to their own stable command schema before serializing. The
+standalone `intent review-fixtures` command uses the same function and retains
+`axe.intent.review-fixtures.v1`.
+
 ## Graph references
 
 `intent graph --json` keeps the existing `nodes` and `edges` arrays and adds one
