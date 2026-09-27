@@ -468,7 +468,7 @@ fn graph_json_recognizes_all_supported_requirement_definition_forms() {
     .expect("requirements");
     fs::write(
         h.repo.join("context/intent/spec.md"),
-        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nAPP-R02 and R03 constrain the graph.\nreq: APP-R02\nreq: <ID>\nreq: <repo-relative-requirements-path>#<ID>\nreq: requirements.md#<ID>\nreq: APP-<ID>\n",
+        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nAPP-R02 and R03 constrain the graph.\nreq: APP-R02\nreq: APP-R02<br>\nreq: APP-R02<!-- note -->\nreq: <ID>\nreq: <repo-relative-requirements-path>#<ID>\nreq: requirements.md#<ID>\nreq: APP-<ID>\n",
     )
     .expect("spec");
 
@@ -517,10 +517,15 @@ fn graph_json_recognizes_all_supported_requirement_definition_forms() {
         .collect::<Vec<_>>();
     assert_eq!(
         traces.len(),
-        1,
+        3,
         "template placeholders must not become requirement traces: {traces:#?}"
     );
-    assert_eq!(traces[0]["written_target"], "APP-R02");
+    assert!(
+        traces
+            .iter()
+            .all(|trace| trace["written_target"] == "APP-R02"),
+        "HTML immediately after a complete target must preserve the trace: {traces:#?}"
+    );
 }
 
 #[test]

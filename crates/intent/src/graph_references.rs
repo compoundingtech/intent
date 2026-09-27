@@ -701,11 +701,14 @@ fn req_traces_in(document: &Document) -> Vec<ReqTrace> {
                 {
                     cursor += 1;
                 }
-                let contains_placeholder = bytes.get(cursor) == Some(&b'<');
+                let followed_by_angle_bracket = bytes.get(cursor) == Some(&b'<');
                 while cursor > target_start && bytes[cursor - 1] == b'.' {
                     cursor -= 1;
                 }
-                if cursor > target_start && !contains_placeholder {
+                let target = &line[target_start..cursor];
+                let incomplete_placeholder =
+                    followed_by_angle_bracket && !is_complete_req_target(target);
+                if cursor > target_start && !incomplete_placeholder {
                     traces.push(ReqTrace {
                         written: line[target_start..cursor].to_string(),
                         range: line_start + found..line_start + cursor,
@@ -725,6 +728,16 @@ fn is_word_byte(byte: u8) -> bool {
 
 fn is_req_target_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'/' | b'#')
+}
+
+fn is_complete_req_target(target: &str) -> bool {
+    let id = target
+        .rsplit_once('#')
+        .map_or(target, |(_, fragment)| fragment);
+    let bytes = id.as_bytes();
+    qualified_id_end(bytes, 0)
+        .or_else(|| local_id_end(bytes, 0))
+        .is_some_and(|end| end == bytes.len())
 }
 
 fn resolve_req_trace(
