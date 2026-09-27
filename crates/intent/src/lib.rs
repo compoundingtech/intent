@@ -1180,7 +1180,7 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
         let content = contents
             .get(path)
             .expect("graph reference builder read every Markdown file");
-        for id in structured_ids_outside_code(content) {
+        for id in graph_references::structured_ids_outside_code(content) {
             nodes.insert(GraphNode {
                 id: id.id.clone(),
                 kind: graph_id_kind(&id.id).to_string(),
@@ -1844,57 +1844,6 @@ fn wikilinks_in_line(line: &str) -> Vec<String> {
     links
 }
 
-#[derive(Debug)]
-struct StructuredId {
-    id: String,
-    title: String,
-    refs: Vec<String>,
-    refines: Vec<String>,
-    evidence: String,
-}
-
-fn structured_ids_outside_code(content: &str) -> Vec<StructuredId> {
-    let mut ids = Vec::new();
-    let mut in_fence = false;
-    for line in content.lines() {
-        if line.trim_start().starts_with("```") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
-        if let Some(id) = structured_id_in_line(line) {
-            ids.push(id);
-        }
-    }
-    ids
-}
-
-fn structured_id_in_line(line: &str) -> Option<StructuredId> {
-    let start = line.find("**")? + 2;
-    let end = line[start..].find("**").map(|offset| start + offset)?;
-    let label = line[start..end].trim().trim_end_matches(':').trim();
-    let mut parts = label.splitn(2, char::is_whitespace);
-    let id = parts.next()?.trim();
-    if !looks_like_intent_id(id) {
-        return None;
-    }
-    let title = parts.next().unwrap_or("").trim().to_string();
-    let rest = &line[end + 2..];
-    Some(StructuredId {
-        id: id.to_string(),
-        title: if title.is_empty() {
-            id.to_string()
-        } else {
-            title
-        },
-        refs: refs_in_text(rest),
-        refines: refines_in_text(rest),
-        evidence: line.trim().to_string(),
-    })
-}
-
 fn looks_like_intent_id(value: &str) -> bool {
     value.len() >= 2
         && value.chars().any(|ch| ch.is_ascii_digit())
@@ -1922,11 +1871,16 @@ fn refines_in_text(text: &str) -> Vec<String> {
 }
 
 fn graph_id_kind(id: &str) -> &'static str {
-    if id.contains("-R") {
+    let local_kind = id
+        .as_bytes()
+        .first()
+        .copied()
+        .filter(|_| id.len() == 3 && id.as_bytes()[1..].iter().all(u8::is_ascii_digit));
+    if local_kind == Some(b'R') || id.contains("-R") {
         "requirement"
-    } else if id.contains("-A") {
+    } else if local_kind == Some(b'A') || id.contains("-A") {
         "assumption"
-    } else if id.contains("-T") {
+    } else if local_kind == Some(b'T') || id.contains("-T") {
         "tradeoff"
     } else if id.starts_with("DQ") || id.contains("-DQ") {
         "design_question"
