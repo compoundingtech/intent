@@ -734,6 +734,13 @@ fn is_complete_req_target(target: &str) -> bool {
     let id = target
         .rsplit_once('#')
         .map_or(target, |(_, fragment)| fragment);
+    let normalized;
+    let id = if id.bytes().any(|byte| byte.is_ascii_lowercase()) {
+        normalized = id.to_ascii_uppercase();
+        normalized.as_str()
+    } else {
+        id
+    };
     let bytes = id.as_bytes();
     qualified_id_end(bytes, 0)
         .or_else(|| local_id_end(bytes, 0))
