@@ -567,6 +567,19 @@ pub struct FixtureGradingReport {
     pub skipped: usize,
 }
 
+#[derive(Debug)]
+pub struct ReviewFixturesError {
+    message: String,
+}
+
+impl std::fmt::Display for ReviewFixturesError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ReviewFixturesError {}
+
 #[derive(Debug, Serialize)]
 pub struct FixtureGrade {
     pub id: String,
@@ -591,78 +604,12 @@ pub struct MinimumFinding {
 }
 
 fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCode {
-    let args_root = defaults.fixtures_or_default(args.root.clone());
-    if let Some(indicator) = automated_context_indicator() {
-        eprintln!(
-            "intent review-fixtures: refusing fixture review in automated context ({indicator})"
-        );
-        return ExitCode::from(2);
-    }
-
-    if let Err(error) = preflight_review_backend(&args.coding_agent, args.backend.as_deref()) {
-        eprintln!("intent review-fixtures: {error}");
-        return ExitCode::from(2);
-    }
-
-    let root = match fs::canonicalize(&args_root) {
-        Ok(root) if root.is_dir() => root,
-        Ok(root) => {
-            eprintln!(
-                "intent review-fixtures: fixtures root is not a directory: {}",
-                root.display()
-            );
-            return ExitCode::from(2);
-        }
-        Err(error) => {
-            eprintln!(
-                "intent review-fixtures: invalid fixtures root {}: {error}",
-                args_root.display()
-            );
-            return ExitCode::from(2);
-        }
-    };
-
-    let selected = match select_fixtures(&root, &args.fixtures) {
-        Ok(selected) => selected,
+    let report = match grade_review_fixtures(&args, defaults) {
+        Ok(report) => report,
         Err(error) => {
             eprintln!("intent review-fixtures: {error}");
             return ExitCode::from(2);
         }
-    };
-
-    // Decision 0024: eval runs materialize tracked fixtures into an isolated
-    // temporary workspace instead of running against the tracked tree.
-    let workspaces = match tempfile::tempdir() {
-        Ok(workspaces) => workspaces,
-        Err(error) => {
-            eprintln!("intent review-fixtures: failed to create eval workspace: {error}");
-            return ExitCode::from(2);
-        }
-    };
-
-    let mut grades = Vec::new();
-    for fixture in &selected {
-        let id = fixture
-            .file_name()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default()
-            .to_string();
-        grades.push(grade_fixture(&args, fixture, &id, workspaces.path()));
-    }
-
-    let passed = grades.iter().filter(|g| g.status == "passed").count();
-    let failed = grades.iter().filter(|g| g.status == "failed").count();
-    let errored = grades.iter().filter(|g| g.status == "errored").count();
-    let skipped = grades.iter().filter(|g| g.status == "skipped").count();
-    let report = FixtureGradingReport {
-        schema_version: "axe.intent.review-fixtures.v1",
-        fixtures_root: root.display().to_string(),
-        backend: args.backend.clone(),
-        fixtures: grades,
-        passed,
-        failed,
-        errored,
-        skipped,
     };
 
     let json = match serde_json::to_string_pretty(&report) {
@@ -695,6 +642,80 @@ fn run_review_fixtures(args: ReviewFixturesArgs, defaults: &Defaults) -> ExitCod
     } else {
         ExitCode::SUCCESS
     }
+}
+
+pub fn grade_review_fixtures(
+    args: &ReviewFixturesArgs,
+    defaults: &Defaults,
+) -> Result<FixtureGradingReport, ReviewFixturesError> {
+    let args_root = defaults.fixtures_or_default(args.root.clone());
+    if let Some(indicator) = automated_context_indicator() {
+        return Err(ReviewFixturesError {
+            message: format!("refusing fixture review in automated context ({indicator})"),
+        });
+    }
+
+    preflight_review_backend(&args.coding_agent, args.backend.as_deref()).map_err(|error| {
+        ReviewFixturesError {
+            message: error.to_string(),
+        }
+    })?;
+
+    let root = fs::canonicalize(&args_root).map_err(|error| ReviewFixturesError {
+        message: format!("invalid fixtures root {}: {error}", args_root.display()),
+    })?;
+    if !root.is_dir() {
+        return Err(ReviewFixturesError {
+            message: format!("fixtures root is not a directory: {}", root.display()),
+        });
+    }
+
+    let selected = select_fixtures(&root, &args.fixtures).map_err(|error| ReviewFixturesError {
+        message: error.to_string(),
+    })?;
+
+    // Decision 0024: eval runs materialize tracked fixtures into an isolated
+    // temporary workspace instead of running against the tracked tree.
+    let workspaces = tempfile::tempdir().map_err(|error| ReviewFixturesError {
+        message: format!("failed to create eval workspace: {error}"),
+    })?;
+
+    let mut grades = Vec::new();
+    for fixture in &selected {
+        let id = fixture
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default()
+            .to_string();
+        grades.push(grade_fixture(args, fixture, &id, workspaces.path()));
+    }
+
+    let passed = grades
+        .iter()
+        .filter(|grade| grade.status == "passed")
+        .count();
+    let failed = grades
+        .iter()
+        .filter(|grade| grade.status == "failed")
+        .count();
+    let errored = grades
+        .iter()
+        .filter(|grade| grade.status == "errored")
+        .count();
+    let skipped = grades
+        .iter()
+        .filter(|grade| grade.status == "skipped")
+        .count();
+    Ok(FixtureGradingReport {
+        schema_version: "axe.intent.review-fixtures.v1",
+        fixtures_root: root.display().to_string(),
+        backend: args.backend.clone(),
+        fixtures: grades,
+        passed,
+        failed,
+        errored,
+        skipped,
+    })
 }
 
 fn print_fixture_grades(report: &FixtureGradingReport) {
