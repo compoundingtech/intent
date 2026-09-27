@@ -15,6 +15,17 @@ entry point rather than in `main.rs`.
 | `intent review <root>`   | Semantic review via the Coding Agent Invocation Contract.        |
 | `intent review-fixtures` | Grades semantic review against evaluation-fixture assertions.    |
 
+## Graph references
+
+`intent graph --json` keeps the existing `nodes` and `edges` arrays and adds one
+source-located `references` record per explicit `req:` trace, local Markdown
+link, normative A/T/R-style ID citation, and scoped decision or delta ordinal
+citation. `syntax` distinguishes those four forms. Each record preserves the
+written target, reports `resolved`, `ambiguous`, or `dangling`, and lists every
+matching target location; link records also preserve their visible label and
+normalized repository-relative path, while citation records expose the
+normalized ID or ordinal and the scope used for resolution.
+
 ## `check` exiting 0 does not mean it read anything
 
 `intent check` on an empty directory, or on a path holding no Intent artifacts at all,
