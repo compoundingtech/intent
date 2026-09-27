@@ -126,6 +126,16 @@ struct IdOccurrence {
 }
 
 #[derive(Clone, Debug)]
+pub(super) struct StructuredId {
+    pub id: String,
+    pub title: String,
+    pub refs: Vec<String>,
+    pub refines: Vec<String>,
+    pub evidence: String,
+    range: Range<usize>,
+}
+
+#[derive(Clone, Debug)]
 struct ReqTrace {
     written: String,
     range: Range<usize>,
@@ -301,33 +311,86 @@ fn definition_occurrences(document: &Document) -> Vec<IdOccurrence> {
                     .and_then(|rest| rest.strip_prefix(". "))?
             };
             let marker_offset = trimmed.len() - after_marker.len();
-            let bold = after_marker.strip_prefix("**")?;
-            let close = bold.find("**")?;
-            let label = &bold[..close];
-            let id = label
-                .trim_start()
-                .split(|ch: char| ch.is_whitespace() || ch == ':')
-                .next()?;
-            if !looks_like_definition_id(id) {
-                return None;
-            }
-            let id_in_label = label.find(id)?;
-            let start = line_start + indentation + marker_offset + 2 + id_in_label;
-            Some(IdOccurrence {
-                written: id.to_string(),
-                normalized: id.to_ascii_uppercase(),
-                range: start..start + id.len(),
+            after_marker.strip_prefix("**")?;
+            structured_id_at(
+                &document.content,
+                line_start + indentation + marker_offset,
+            )
+            .map(|definition| IdOccurrence {
+                written: definition.id.clone(),
+                normalized: definition.id.to_ascii_uppercase(),
+                range: definition.range,
             })
         })
         .collect()
 }
 
-fn looks_like_definition_id(value: &str) -> bool {
-    value.len() >= 2
-        && value.chars().any(|ch| ch.is_ascii_digit())
-        && value
-            .chars()
-            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '.' || ch == '-')
+pub(super) fn structured_ids_outside_code(content: &str) -> Vec<StructuredId> {
+    prose_lines(content)
+        .into_iter()
+        .filter_map(|(line_start, line)| {
+            line.find("**")
+                .and_then(|start| structured_id_at(content, line_start + start))
+        })
+        .collect()
+}
+
+fn structured_id_at(content: &str, bold_start: usize) -> Option<StructuredId> {
+    let label_start = bold_start.checked_add(2)?;
+    let label_tail = content.get(label_start..)?;
+    let label_end = label_start + label_tail.find("**")?;
+    let label_source = content.get(label_start..label_end)?;
+    if label_source.lines().skip(1).any(|line| {
+        let trimmed = line.trim_start();
+        line.trim().is_empty() || trimmed.starts_with("```") || trimmed.starts_with("~~~")
+    }) {
+        return None;
+    }
+
+    let label = label_source
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let label = label.trim().trim_end_matches(':').trim();
+    let written_id = label
+        .split(|character: char| character.is_whitespace() || character == ':')
+        .next()?;
+    let id = written_id.trim_end_matches('.');
+    if !super::looks_like_intent_id(id) {
+        return None;
+    }
+    let id_offset = label_source.find(written_id)?;
+    let range = label_start + id_offset..label_start + id_offset + id.len();
+    let title = label
+        .get(written_id.len()..)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let rest_start = label_end + 2;
+    let rest_end = content[rest_start..]
+        .find('\n')
+        .map_or(content.len(), |offset| rest_start + offset);
+    let rest = content.get(rest_start..rest_end)?.trim();
+    let evidence_start = content[..bold_start]
+        .rfind('\n')
+        .map_or(0, |offset| offset + 1);
+    let evidence = content
+        .get(evidence_start..rest_end)?
+        .trim()
+        .to_string();
+
+    Some(StructuredId {
+        id: id.to_string(),
+        title: if title.is_empty() {
+            id.to_string()
+        } else {
+            title
+        },
+        refs: super::refs_in_text(rest),
+        refines: super::refines_in_text(rest),
+        evidence,
+        range,
+    })
 }
 
 fn group_definitions(definitions: &[Definition]) -> BTreeMap<String, Vec<Definition>> {
@@ -648,7 +711,7 @@ fn is_word_byte(byte: u8) -> bool {
 }
 
 fn is_req_target_byte(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'/' | b'#' | b'<' | b'>')
+    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'/' | b'#')
 }
 
 fn resolve_req_trace(

@@ -451,6 +451,70 @@ fn graph_json_resolves_traces_plain_ids_and_scoped_companion_ordinals() {
 }
 
 #[test]
+fn graph_json_recognizes_all_supported_requirement_definition_forms() {
+    let h = Harness::new();
+    fs::write(
+        h.repo.join("context/intent/requirements.md"),
+        "# Requirements\n\n- **A01 Local assumption:** fixture.\n- **R01 Local requirement:** fixture.\n- **T01 Local tradeoff:** fixture.\n- **APP-R02 A multiline\n  requirement title:** fixture.\n- **R03.** Legacy local requirement.\n",
+    )
+    .expect("requirements");
+    fs::write(
+        h.repo.join("context/intent/spec.md"),
+        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nAPP-R02 and R03 constrain the graph.\nreq: APP-R02\nreq: <ID>\nreq: <repo-relative-requirements-path>#<ID>\n",
+    )
+    .expect("spec");
+
+    let output = h.graph(&["--json"]);
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let graph = stdout_json(&output);
+    let nodes = graph["nodes"].as_array().unwrap();
+    for (id, kind, title) in [
+        ("A01", "assumption", "Local assumption"),
+        ("R01", "requirement", "Local requirement"),
+        ("T01", "tradeoff", "Local tradeoff"),
+        ("APP-R02", "requirement", "A multiline requirement title"),
+        ("R03", "requirement", "R03"),
+    ] {
+        assert!(
+            nodes.iter().any(|node| {
+                node["id"] == id && node["kind"] == kind && node["title"] == title
+            }),
+            "missing {kind} node {id}"
+        );
+    }
+    assert!(
+        !nodes.iter().any(|node| node["id"] == "R03."),
+        "legacy punctuation is not part of the requirement ID"
+    );
+
+    let references = graph["references"].as_array().unwrap();
+    for target in ["APP-R02", "R03"] {
+        assert!(
+            references.iter().any(|reference| {
+                reference["syntax"] == "id_citation"
+                    && reference["written_target"] == target
+                    && reference["resolution"] == "resolved"
+            }),
+            "missing resolved citation for {target}"
+        );
+    }
+    assert!(
+        references.iter().all(|reference| {
+            reference["syntax"] != "req_trace"
+                || !reference["written_target"]
+                    .as_str()
+                    .is_some_and(|target| target.contains('<') || target.contains('>'))
+        }),
+        "template placeholders must not become requirement traces"
+    );
+}
+
+#[test]
 fn valid_minimal_intent_tree_passes_json_check() {
     let h = Harness::new();
 
