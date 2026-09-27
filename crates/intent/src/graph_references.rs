@@ -701,10 +701,11 @@ fn req_traces_in(document: &Document) -> Vec<ReqTrace> {
                 {
                     cursor += 1;
                 }
+                let contains_placeholder = bytes.get(cursor) == Some(&b'<');
                 while cursor > target_start && bytes[cursor - 1] == b'.' {
                     cursor -= 1;
                 }
-                if cursor > target_start {
+                if cursor > target_start && !contains_placeholder {
                     traces.push(ReqTrace {
                         written: line[target_start..cursor].to_string(),
                         range: line_start + found..line_start + cursor,

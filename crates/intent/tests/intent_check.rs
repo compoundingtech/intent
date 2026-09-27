@@ -468,7 +468,7 @@ fn graph_json_recognizes_all_supported_requirement_definition_forms() {
     .expect("requirements");
     fs::write(
         h.repo.join("context/intent/spec.md"),
-        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nAPP-R02 and R03 constrain the graph.\nreq: APP-R02\nreq: <ID>\nreq: <repo-relative-requirements-path>#<ID>\n",
+        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nAPP-R02 and R03 constrain the graph.\nreq: APP-R02\nreq: <ID>\nreq: <repo-relative-requirements-path>#<ID>\nreq: requirements.md#<ID>\nreq: APP-<ID>\n",
     )
     .expect("spec");
 
@@ -511,15 +511,16 @@ fn graph_json_recognizes_all_supported_requirement_definition_forms() {
             "missing resolved citation for {target}"
         );
     }
-    assert!(
-        references.iter().all(|reference| {
-            reference["syntax"] != "req_trace"
-                || !reference["written_target"]
-                    .as_str()
-                    .is_some_and(|target| target.contains('<') || target.contains('>'))
-        }),
-        "template placeholders must not become requirement traces"
+    let traces = references
+        .iter()
+        .filter(|reference| reference["syntax"] == "req_trace")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        traces.len(),
+        1,
+        "template placeholders must not become requirement traces: {traces:#?}"
     );
+    assert_eq!(traces[0]["written_target"], "APP-R02");
 }
 
 #[test]
