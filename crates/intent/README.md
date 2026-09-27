@@ -28,13 +28,14 @@ standalone `intent review-fixtures` command uses the same function and retains
 ## Graph references
 
 `intent graph --json` keeps the existing `nodes` and `edges` arrays and adds one
-source-located `references` record per explicit `req:` trace, local Markdown
-link, normative A/T/R-style ID citation, and scoped decision or delta ordinal
+source-located `references` record per explicit `req:` trace, Markdown link,
+normative A/T/R-style ID citation, and scoped decision or delta ordinal
 citation. `syntax` distinguishes those four forms. Each record preserves the
-written target, reports `resolved`, `ambiguous`, or `dangling`, and lists every
-matching target location; link records also preserve their visible label and
-normalized repository-relative path, while citation records expose the
-normalized ID or ordinal and the scope used for resolution.
+written target, reports `resolved`, `ambiguous`, `dangling`, or `external`, and
+lists every matching target location. Link records also preserve their visible
+label; local links expose their normalized repository-relative path, while
+external links have no target location. Citation records expose the normalized
+ID or ordinal and the scope used for resolution.
 
 ## `check` exiting 0 does not mean it read anything
 

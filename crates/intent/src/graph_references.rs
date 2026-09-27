@@ -488,7 +488,7 @@ fn markdown_links_in(document: &Document) -> Vec<MarkdownLink> {
             };
             let raw = line[target_start..paren_end].trim();
             let target = markdown_destination(raw);
-            if !target.is_empty() && !is_external_target(target) {
+            if !target.is_empty() {
                 links.push(MarkdownLink {
                     label: visible_label(&line[open + 1..close]),
                     written_target: target.to_string(),
@@ -539,6 +539,23 @@ fn resolve_markdown_link(
     link: &MarkdownLink,
     documents_by_path: &BTreeMap<PathBuf, &Document>,
 ) -> ResolvedLink {
+    if is_external_target(&link.written_target) {
+        return ResolvedLink {
+            reference: GraphReference {
+                syntax: "markdown_link",
+                source: document.location(link.range.clone()),
+                written_target: link.written_target.clone(),
+                resolution: "external",
+                target_locations: Vec::new(),
+                label: Some(link.label.clone()),
+                resolved_target: None,
+                normalized_target: None,
+                scope: None,
+            },
+            target_path: None,
+        };
+    }
+
     let decoded = percent_decode_minimal(&link.written_target);
     let (file_part, anchor) = split_anchor(&decoded);
     let lexical_target = if file_part.is_empty() {
