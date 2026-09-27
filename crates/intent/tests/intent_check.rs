@@ -265,6 +265,192 @@ fn graph_json_exposes_files_ids_links_and_wikilinks() {
 }
 
 #[test]
+fn graph_json_records_each_local_markdown_link_with_resolution_and_locations() {
+    let h = Harness::new();
+    fs::write(
+        h.repo.join("context/intent/requirements.md"),
+        "# Requirements\n\n## Local target\n",
+    )
+    .expect("requirements");
+    fs::write(
+        h.repo.join("context/intent/spec.md"),
+        "# Spec\n\nSee π [the requirement](./requirements.md#local-target), [missing](./missing.md), and [external](https://example.com/docs).\n",
+    )
+    .expect("spec");
+
+    let output = h.graph(&["--json"]);
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let graph = stdout_json(&output);
+    let links = graph["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|reference| reference["syntax"] == "markdown_link")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        links.len(),
+        2,
+        "external URLs are not local link references"
+    );
+
+    let resolved = links
+        .iter()
+        .find(|reference| reference["written_target"] == "./requirements.md#local-target")
+        .unwrap();
+    assert_eq!(resolved["label"], "the requirement");
+    assert_eq!(resolved["resolution"], "resolved");
+    assert_eq!(
+        resolved["resolved_target"],
+        "context/intent/requirements.md#local-target"
+    );
+    assert_eq!(resolved["source"]["path"], "context/intent/spec.md");
+    assert_eq!(resolved["source"]["start"]["line"], 3);
+    assert_eq!(resolved["source"]["start"]["column"], 7);
+    assert_eq!(
+        resolved["target_locations"][0]["path"],
+        "context/intent/requirements.md"
+    );
+    assert_eq!(resolved["target_locations"][0]["start"]["line"], 3);
+
+    let dangling = links
+        .iter()
+        .find(|reference| reference["written_target"] == "./missing.md")
+        .unwrap();
+    assert_eq!(dangling["resolution"], "dangling");
+    assert_eq!(dangling["resolved_target"], "context/intent/missing.md");
+    assert!(dangling["target_locations"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn graph_json_resolves_traces_plain_ids_and_scoped_companion_ordinals() {
+    let h = Harness::new();
+    fs::create_dir_all(h.repo.join("context/intent/.delta")).expect("delta directory");
+    fs::create_dir_all(h.repo.join("context/intent/child-a")).expect("child a");
+    fs::create_dir_all(h.repo.join("context/intent/child-b")).expect("child b");
+    fs::write(
+        h.repo.join("context/intent/requirements.md"),
+        "# Requirements\n\n- **AXE.INTENT-R08 Graph references:** emit references.\n- **R02 Local graph references:** resolve in the linked requirements scope.\n",
+    )
+    .expect("requirements");
+    for child in ["child-a", "child-b"] {
+        fs::write(
+            h.repo
+                .join(format!("context/intent/{child}/requirements.md")),
+            "# Requirements\n\n- **DUP-R01 Duplicate namespace:** fixture.\n",
+        )
+        .expect("duplicate requirement");
+    }
+    for slug in ["first", "second"] {
+        fs::write(
+            h.repo
+                .join(format!("context/intent/.decisions/0002-{slug}.md")),
+            format!("# {slug}\n"),
+        )
+        .expect("duplicate decision ordinal");
+    }
+    fs::write(
+        h.repo.join("context/intent/.delta/DELTA-004-drift.md"),
+        "# DELTA-004: Drift\n",
+    )
+    .expect("delta");
+    fs::write(
+        h.repo.join("context/intent/spec.md"),
+        "# Spec\n\nThis builds on [requirements](./requirements.md).\n\nreq: AXE.INTENT-R08\nAXE.INTENT-R08 and R02 constrain the graph.\nDUP-R01 and Decision 0002 are ambiguous in their respective scopes.\nDecision 0001 and DELTA-4 record the rationale and current drift.\n",
+    )
+    .expect("spec");
+
+    let output = h.graph(&["--json"]);
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let graph = stdout_json(&output);
+    let references = graph["references"].as_array().unwrap();
+
+    let trace = references
+        .iter()
+        .find(|reference| {
+            reference["syntax"] == "req_trace" && reference["written_target"] == "AXE.INTENT-R08"
+        })
+        .unwrap();
+    assert_eq!(trace["resolution"], "resolved");
+    assert_eq!(trace["normalized_target"], "AXE.INTENT-R08");
+
+    let namespaced = references
+        .iter()
+        .find(|reference| {
+            reference["syntax"] == "id_citation" && reference["written_target"] == "AXE.INTENT-R08"
+        })
+        .unwrap();
+    assert_eq!(namespaced["resolution"], "resolved");
+    assert_eq!(namespaced["scope"], "namespace:AXE.INTENT");
+
+    let local = references
+        .iter()
+        .find(|reference| {
+            reference["syntax"] == "id_citation" && reference["written_target"] == "R02"
+        })
+        .unwrap();
+    assert_eq!(local["resolution"], "resolved");
+    assert_eq!(local["scope"], "linked:context/intent/requirements.md");
+
+    let ambiguous_id = references
+        .iter()
+        .find(|reference| {
+            reference["syntax"] == "id_citation" && reference["written_target"] == "DUP-R01"
+        })
+        .unwrap();
+    assert_eq!(ambiguous_id["resolution"], "ambiguous");
+    assert_eq!(
+        ambiguous_id["target_locations"].as_array().unwrap().len(),
+        2
+    );
+
+    let ambiguous_ordinal = references
+        .iter()
+        .find(|reference| {
+            reference["syntax"] == "ordinal_citation" && reference["written_target"] == "0002"
+        })
+        .unwrap();
+    assert_eq!(ambiguous_ordinal["resolution"], "ambiguous");
+    assert_eq!(
+        ambiguous_ordinal["target_locations"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    for (written, normalized, target_suffix) in [
+        ("0001", "0001", ".decisions/0001-good.md"),
+        ("DELTA-4", "DELTA-004", ".delta/DELTA-004-drift.md"),
+    ] {
+        let ordinal = references
+            .iter()
+            .find(|reference| {
+                reference["syntax"] == "ordinal_citation" && reference["written_target"] == written
+            })
+            .unwrap();
+        assert_eq!(ordinal["normalized_target"], normalized);
+        assert_eq!(ordinal["resolution"], "resolved");
+        assert!(
+            ordinal["target_locations"][0]["path"]
+                .as_str()
+                .unwrap()
+                .ends_with(target_suffix),
+            "{ordinal:#?}"
+        );
+    }
+}
+
+#[test]
 fn valid_minimal_intent_tree_passes_json_check() {
     let h = Harness::new();
 

@@ -1,3 +1,7 @@
+mod graph_references;
+
+pub use graph_references::{GraphReference, SourceLocation, SourcePosition};
+
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use serde_json::Value;
@@ -165,6 +169,7 @@ pub struct GraphReport {
     pub root: String,
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
+    pub references: Vec<GraphReference>,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -1128,6 +1133,10 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
     let markdown_files = markdown_files(&root)?;
     let mut nodes = BTreeSet::new();
     let mut edges = BTreeSet::new();
+    let graph_references::GraphReferenceBuild {
+        references,
+        contents,
+    } = graph_references::build(&root, &markdown_files)?;
 
     for path in &markdown_files {
         let relative = relative_display(&root, path);
@@ -1147,8 +1156,10 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
             evidence: Vec::new(),
         });
 
-        let content = fs::read_to_string(path)?;
-        for id in structured_ids_outside_code(&content) {
+        let content = contents
+            .get(path)
+            .expect("graph reference builder read every Markdown file");
+        for id in structured_ids_outside_code(content) {
             nodes.insert(GraphNode {
                 id: id.id.clone(),
                 kind: graph_id_kind(&id.id).to_string(),
@@ -1168,7 +1179,7 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
             });
         }
 
-        for link in markdown_links_outside_code(&content) {
+        for link in markdown_links_outside_code(content) {
             let Some(target) = normalized_local_link_target(&link) else {
                 continue;
             };
@@ -1194,7 +1205,7 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
             });
         }
 
-        for wikilink in wikilinks_outside_code(&content) {
+        for wikilink in wikilinks_outside_code(content) {
             let target = format!("wiki:{wikilink}");
             nodes.insert(GraphNode {
                 id: target.clone(),
@@ -1221,6 +1232,7 @@ pub fn graph_root(root: &Path) -> Result<GraphReport, Box<dyn std::error::Error>
         root: root.display().to_string(),
         nodes: nodes.into_iter().collect(),
         edges: edges.into_iter().collect(),
+        references,
     })
 }
 
