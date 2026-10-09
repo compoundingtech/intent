@@ -4,6 +4,7 @@ use std::{fs, path::PathBuf, process::Output, sync::Arc};
 use axum::{
     body::to_bytes,
     extract::{Request, State},
+    response::{IntoResponse, Response},
     Json, Router,
 };
 use serde_json::{json, Value};
@@ -49,7 +50,7 @@ impl Replay {
     }
 }
 
-async fn reply(State(state): State<ReplayState>, request: Request) -> Json<Value> {
+async fn reply(State(state): State<ReplayState>, request: Request) -> Response {
     let path = request.uri().path().to_owned();
     let body: Value = serde_json::from_slice(
         &to_bytes(request.into_body(), 4 * 1024 * 1024)
@@ -67,14 +68,24 @@ async fn reply(State(state): State<ReplayState>, request: Request) -> Json<Value
         )).collect();
         Json(
             json!({"model": "provider/decision-reported", "answers": answers, "usage": {"input_tokens": 20, "output_tokens": 5, "total_tokens": 25}}),
-        )
+        ).into_response()
     } else {
         assert_eq!(path, "/v1/chat/completions");
+        if let Some(status) = state.result["replay_http_status"].as_u64() {
+            return (
+                axum::http::StatusCode::from_u16(status as u16).unwrap(),
+                Json(json!({"error": "replay failure"})),
+            )
+                .into_response();
+        }
+        if state.result["replay_delay"] == true {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
         Json(
             json!({"id": "replay", "object": "chat.completion", "created": 0, "model": "provider/grounding",
             "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": state.result.to_string()}}],
             "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40}}),
-        )
+        ).into_response()
     }
 }
 
@@ -214,6 +225,7 @@ async fn gateway_replays_triage_and_one_grounding_call_with_shared_packet() {
     assert!(packet["packet"].get("rubric").is_none());
     assert!(packet["packet"]["artifacts"].is_object());
     let usage = h.usage();
+    assert_eq!(usage["outcome"], "ok");
     assert_eq!(usage["smells"]["smell-01"]["probability"], 0.6);
     assert_eq!(usage["decision"]["usage"]["total"], 25);
     assert_eq!(
@@ -273,6 +285,11 @@ async fn gateway_rejects_invalid_schema_unsupplied_artifacts_and_unflagged_smell
         let output = h.run(&replay, &["--allow-ci"], None).await;
         assert_eq!(output.status.code(), Some(2), "{invalid}");
         assert!(!h.report.exists(), "{invalid}");
+        let usage = h.usage();
+        assert_eq!(usage["outcome"], "error");
+        assert_eq!(usage["error_class"], "schema");
+        assert_eq!(usage["decision"]["usage"]["total"], 25);
+        assert_eq!(usage["grounding"]["called"], true);
     }
 }
 
@@ -336,4 +353,33 @@ async fn gateway_rejects_invalid_threshold_and_target_before_network() {
         assert_eq!(h.run(&replay, &args, None).await.status.code(), Some(2));
     }
     assert!(replay.state.requests.lock().is_empty());
+    assert!(!h.report.with_extension("json.usage.json").exists());
+}
+
+#[tokio::test]
+async fn gateway_preserves_decision_usage_on_auth_failure_and_grounding_timeout() {
+    for (response, args, class) in [
+        (
+            json!({"replay_http_status": 401}),
+            vec!["--allow-ci"],
+            "auth",
+        ),
+        (
+            json!({"replay_delay": true}),
+            vec!["--allow-ci", "--timeout-seconds", "1"],
+            "timeout",
+        ),
+    ] {
+        let h = Harness::new();
+        let replay = Replay::start(0.9, response).await;
+        let output = h.run(&replay, &args, None).await;
+        assert_eq!(output.status.code(), Some(2));
+        let usage = h.usage();
+        assert_eq!(usage["outcome"], "error");
+        assert_eq!(usage["error_class"], class);
+        assert_eq!(usage["decision"]["usage"]["total"], 25);
+        assert_eq!(usage["grounding"]["called"], true);
+        assert_eq!(usage["grounding"]["usage"], Value::Null);
+        assert!(!h.report.exists());
+    }
 }
