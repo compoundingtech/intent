@@ -37,7 +37,7 @@
           # the only per-dependency hash. Bump it together with Cargo.lock.
           cargoLock = {
             lockFile = ./crates/intent/Cargo.lock;
-            outputHashes."ai-gateway-0.0.0" = "sha256-Iy8qQuY+nIMmNLWwuy9MT9OkYcv2vxyyhvIMuTjG4Zs=";
+            outputHashes."ai-gateway-0.0.0" = "sha256-BwRz7U4rxC2IVljiNonxLmr9TkIbNCs+Rud5RGRjk1Q=";
           };
 
           # Builds and tests run inside the crate, while `src` stays the whole

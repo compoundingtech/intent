@@ -354,8 +354,10 @@ itself rather than a CAIC envelope and writes a usage sidecar to
 `--usage-report` or `<report>.usage.json`; it records per-smell probabilities,
 requested/reported models, and provider usage. After the first gateway call it
 is written on success and failure, retaining all known usage even when grounding,
-schema validation, authentication, or a timeout fails. `outcome` is `ok` or
-`error`; failures also carry an `error_class` without storing provider error
+schema validation, authentication, or a timeout fails. Billed usage attached to
+decision and structured-response validation errors is retained even when the
+answer is rejected. `outcome` is `ok` or `error`; failures also carry an
+`error_class` without storing provider error
 payloads. No sidecar is written when no call was made. Gateway findings exit 0
 unless `--strict` is set, which exits 1 when findings exist.
 

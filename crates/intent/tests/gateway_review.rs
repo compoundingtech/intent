@@ -302,6 +302,7 @@ async fn gateway_rejects_invalid_schema_unsupplied_artifacts_and_unflagged_smell
         assert_eq!(usage["error_class"], "schema");
         assert_eq!(usage["decision"]["usage"]["total"], 25);
         assert_eq!(usage["grounding"]["called"], true);
+        assert_eq!(usage["grounding"]["usage"]["total"], 40, "{invalid}");
     }
 }
 
@@ -459,4 +460,19 @@ async fn explicit_corpus_does_not_allow_a_file_outside_the_target_root() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("invalid review target"));
     assert!(replay.state.requests.lock().is_empty());
     assert!(!h.report.with_extension("json.usage.json").exists());
+}
+
+#[tokio::test]
+async fn gateway_preserves_billed_usage_when_decision_validation_rejects_answer() {
+    let h = Harness::new();
+    let replay = Replay::start(1.1, grounded("smell-01")).await;
+    let output = h.run(&replay, &["--allow-ci"], None).await;
+    assert_eq!(output.status.code(), Some(2));
+    let usage = h.usage();
+    assert_eq!(usage["outcome"], "error");
+    assert_eq!(usage["error_class"], "schema");
+    assert_eq!(usage["decision"]["usage"]["total"], 25);
+    assert_eq!(usage["grounding"]["called"], false);
+    assert_eq!(replay.state.requests.lock().len(), 1);
+    assert!(!h.report.exists());
 }
