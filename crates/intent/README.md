@@ -12,7 +12,7 @@ entry point rather than in `main.rs`.
 | ------------------------ | ---------------------------------------------------------------- |
 | `intent check <root>`    | Deterministic Intent checks. `--profile strict\|local`, `--json`.    |
 | `intent graph <root>`    | Emits the derived Intent graph subset as JSON.                      |
-| `intent review <root>`   | Semantic review via the Coding Agent Invocation Contract.        |
+| `intent review <root>`   | Semantic review via CAIC, or `--backend gateway` (CI only with explicit opt-in). |
 | `intent review-fixtures` | Grades semantic review against evaluation-fixture assertions.    |
 
 

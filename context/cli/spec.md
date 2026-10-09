@@ -56,7 +56,7 @@ implementation boundary. The root Intent contract remains the semantic authority
 ```text
 intent check [path] [--profile local|strict] [--warnings-as-errors] [--json]
 intent graph [path] [--json]
-intent review [path] [--profile local|strict] [--backend <id>] [--coding-agent <path>] [--report <path>]
+intent review [path] [--profile local|strict] [--backend <id>|gateway] [--coding-agent <path>] [--report <path>] [--file <path>]... [--allow-ci] [--strict]
 intent review-fixtures [path] [--fixture <id>]... [--backend <id>] [--coding-agent <path>] [--json] [--report <path>]
 ```
 
@@ -313,7 +313,7 @@ Semantic findings use the diagnostic shape where possible, but their gate is
 `review` unless a later Intent decision makes a specific semantic rule blocking.
 Review mode must not write files or silently apply fixes.
 
-Any `intent review` or fixture-review mode that calls a real provider and
+Any CAIC `intent review` or fixture-review mode that calls a real provider and
 spends model tokens is manual-only. It must not be part of CI, Nix checks,
 pre-commit hooks, scheduled jobs, or default automated validation. Automated
 validation may cover deterministic fixture shape and fake-provider invocation
@@ -322,13 +322,30 @@ invoking `intent review` is the explicit operator action. The mechanical guard
 is that the command fails before provider invocation when it detects CI or other
 known automated environments.
 
+The named `gateway` backend is the only automated-context carve-out. It runs in
+CI only with `--allow-ci` or `INTENT_VRS_REVIEW_ALLOW_CI=gateway`; neither opt-in
+permits a CAIC backend. It reads `AI_GATEWAY_URL` and optional
+`AI_GATEWAY_TOKEN`, uses the same target files, deterministic diagnostics,
+review prompt, and result schema as CAIC, and requires `--model` or
+`INTENT_VRS_REVIEW_MODEL` for grounding. Repeated `--file` arguments select
+Markdown targets relative to the review workspace; without them, the whole root
+is reviewed. The backend asks one native Noul decision per catalog smell, flags
+answers at or above `--probability-threshold` (default `0.6`), and abstains from
+the rest. If no smell is flagged it emits an empty result. Otherwise it makes
+one structured request with the flagged smells and validates the response
+against the corpus schema. Findings must cite a supplied target artifact.
+
 Output defaults to stdout. On success, stdout contains the CAIC JSON result
 envelope whose `result` field conforms to `axe.intent.review.v1`; provider progress
 and human logs remain on stderr. `--report <path>` writes the same final JSON
 envelope to a caller-chosen path and leaves stdout empty on success, matching
 CAIC `--final-output` semantics. Tool or schema failures use the CAIC error
 envelope when available; task findings remain structured review findings and do
-not imply a nonzero exit code unless a future explicit fail policy is added.
+not imply a nonzero exit code. The gateway backend emits the schema-valid result
+itself rather than a CAIC envelope and writes a usage sidecar to
+`--usage-report` or `<report>.usage.json`; it records per-smell probabilities,
+requested/reported models, and provider usage. Gateway findings exit 0 unless
+`--strict` is set, which exits 1 when findings exist.
 
 ## Fixture Review Grading
 
