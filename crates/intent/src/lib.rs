@@ -74,6 +74,10 @@ pub struct ReviewArgs {
     /// Intent root to review.
     pub root: Option<PathBuf>,
 
+    /// Review asset corpus, relative to the workspace (default: target root).
+    #[arg(long)]
+    pub corpus: Option<PathBuf>,
+
     /// Rule profile to use for the deterministic diagnostics packet.
     #[arg(long, value_enum, default_value_t = Profile::Local)]
     pub profile: Profile,
@@ -398,14 +402,34 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         return ExitCode::from(2);
     }
     let workspace = review_workspace(&root);
-    let prompt = match corpus_asset(&root, REVIEW_PROMPT_ASSET) {
+    let corpus = match args.corpus.as_ref() {
+        Some(path) => match fs::canonicalize(workspace.join(path)) {
+            Ok(path) if path.is_dir() && path.starts_with(&workspace) => path,
+            Ok(path) => {
+                eprintln!(
+                    "intent review: asset corpus must be a directory inside the workspace: {}",
+                    path.display()
+                );
+                return ExitCode::from(2);
+            }
+            Err(error) => {
+                eprintln!(
+                    "intent review: invalid asset corpus {}: {error}",
+                    path.display()
+                );
+                return ExitCode::from(2);
+            }
+        },
+        None => root.clone(),
+    };
+    let prompt = match corpus_asset(&corpus, REVIEW_PROMPT_ASSET) {
         Ok(path) => path,
         Err(error) => {
             eprintln!("intent review: {error}");
             return ExitCode::from(2);
         }
     };
-    let schema = match corpus_asset(&root, REVIEW_SCHEMA_ASSET) {
+    let schema = match corpus_asset(&corpus, REVIEW_SCHEMA_ASSET) {
         Ok(path) => path,
         Err(error) => {
             eprintln!("intent review: {error}");
@@ -413,7 +437,7 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         }
     };
     if args.backend.as_deref() == Some("gateway") {
-        return gateway_review::run(&args, &root, &workspace, &prompt, &schema);
+        return gateway_review::run(&args, &root, &workspace, &corpus, &prompt, &schema);
     }
 
     let invocation = ReviewInvocation {

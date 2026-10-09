@@ -39,6 +39,7 @@ pub(super) fn run(
     args: &ReviewArgs,
     root: &Path,
     workspace: &Path,
+    corpus: &Path,
     prompt: &Path,
     schema: &Path,
 ) -> ExitCode {
@@ -82,7 +83,7 @@ pub(super) fn run(
             files: &args.files,
         };
         let packet = review_packet(&invocation).map_err(|error| error.message)?;
-        let rubric = fs::read_to_string(corpus_asset(root, "13-review-smells/spec.md")?)?;
+        let rubric = fs::read_to_string(corpus_asset(corpus, "13-review-smells/spec.md")?)?;
         let smells = catalog(&rubric)?;
         let artifacts: BTreeMap<_, _> = packet
             .target_files

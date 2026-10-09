@@ -132,12 +132,24 @@ impl Harness {
     }
 
     async fn run(&self, replay: &Replay, args: &[&str], opt_in: Option<&str>) -> Output {
+        self.run_at(replay, &self.root, "context/intent/vision.md", args, opt_in)
+            .await
+    }
+
+    async fn run_at(
+        &self,
+        replay: &Replay,
+        root: &std::path::Path,
+        target: &str,
+        args: &[&str],
+        opt_in: Option<&str>,
+    ) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_intent"));
         command
             .arg("review")
-            .arg(&self.root)
+            .arg(root)
             .args(["--backend", "gateway", "--model", "provider/grounding"])
-            .args(["--file", "context/intent/vision.md", "--report"])
+            .args(["--file", target, "--report"])
             .arg(&self.report)
             .args(args)
             .env("CI", "true")
@@ -382,4 +394,69 @@ async fn gateway_preserves_decision_usage_on_auth_failure_and_grounding_timeout(
         assert_eq!(usage["grounding"]["usage"], Value::Null);
         assert!(!h.report.exists());
     }
+}
+
+#[tokio::test]
+async fn gateway_uses_explicit_asset_corpus_with_sibling_target_tree() {
+    let h = Harness::new();
+    let target = "context/other/vision.md";
+    let path = h.temp.path().join(target);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "# Vision\nImplement this with ExampleTool.\n").unwrap();
+    let mut response = grounded("smell-01");
+    response["findings"][0]["artifact"] = json!(target);
+    let replay = Replay::start(0.9, response).await;
+    let output = h
+        .run_at(
+            &replay,
+            h.root.parent().unwrap(),
+            target,
+            &["--allow-ci", "--corpus", "context/intent"],
+            None,
+        )
+        .await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let requests = replay.state.requests.lock();
+    let state = &requests[0]["body"]["state"];
+    assert!(state["rubric"]
+        .as_str()
+        .unwrap()
+        .contains("## Smell Catalog"));
+    assert_eq!(state["artifacts"].as_object().unwrap().len(), 1);
+    assert!(state["artifacts"][target]
+        .as_str()
+        .unwrap()
+        .contains("ExampleTool"));
+    assert_eq!(
+        state["prompt"],
+        "Use only supplied artifacts; return axe.intent.review.v1."
+    );
+    let result: Value = serde_json::from_slice(&fs::read(&h.report).unwrap()).unwrap();
+    assert_eq!(result["schema_version"], "axe.intent.review.v1");
+    assert_eq!(result["findings"][0]["artifact"], target);
+}
+
+#[tokio::test]
+async fn explicit_corpus_does_not_allow_a_file_outside_the_target_root() {
+    let h = Harness::new();
+    fs::write(h.temp.path().join("outside.md"), "# Outside\n").unwrap();
+    let replay = Replay::start(0.9, grounded("smell-01")).await;
+    let output = h
+        .run_at(
+            &replay,
+            h.root.parent().unwrap(),
+            "outside.md",
+            &["--allow-ci", "--corpus", "context/intent"],
+            None,
+        )
+        .await;
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid review target"));
+    assert!(replay.state.requests.lock().is_empty());
+    assert!(!h.report.with_extension("json.usage.json").exists());
 }

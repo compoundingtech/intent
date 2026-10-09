@@ -85,9 +85,17 @@ compatibility aliases.
 <corpus>/16-enforcement/review-result.schema.json
 ```
 
-Both are resolved **relative to the corpus root** given on the command line, not
-relative to the enclosing repository. A corpus that moves takes its enforcement
-assets with it, which is what keeps tool and corpus co-located.
+Both are resolved **relative to the asset corpus root**, not by searching the
+enclosing repository. By default, this is the review target root. An explicit
+`--corpus <path>` selects a different asset corpus inside the workspace; the
+path is relative to that workspace. This applies to gateway and CAIC review.
+The gateway also reads `13-review-smells/spec.md` from that corpus.
+
+For example, `intent review context --corpus context/intent --backend gateway
+--allow-ci --model provider/model --file context/other/vision.md` uses the
+contracts under `context/intent` to review a sibling target. `--file` remains
+relative to the workspace and must stay inside the review target root; changing
+the asset corpus never expands the target boundary.
 
 The consequence is deliberate and is a behavior change from earlier versions: a
 corpus that has no `16-enforcement/` of its own **fails** rather than quietly

@@ -56,7 +56,7 @@ implementation boundary. The root Intent contract remains the semantic authority
 ```text
 intent check [path] [--profile local|strict] [--warnings-as-errors] [--json]
 intent graph [path] [--json]
-intent review [path] [--profile local|strict] [--backend <id>|gateway] [--coding-agent <path>] [--report <path>] [--file <path>]... [--allow-ci] [--strict]
+intent review [path] [--corpus <path>] [--profile local|strict] [--backend <id>|gateway] [--coding-agent <path>] [--report <path>] [--file <path>]... [--allow-ci] [--strict]
 intent review-fixtures [path] [--fixture <id>]... [--backend <id>] [--coding-agent <path>] [--json] [--report <path>]
 ```
 
@@ -329,7 +329,12 @@ permits a CAIC backend. It reads `AI_GATEWAY_URL` and optional
 review prompt, and result schema as CAIC, and requires `--model` or
 `INTENT_REVIEW_MODEL` for grounding. Repeated `--file` arguments select
 Markdown targets relative to the review workspace; without them, the whole root
-is reviewed. The backend asks one native Noul decision per catalog smell, flags
+is reviewed. For CAIC and gateway review, `--corpus <path>` selects the prompt
+and result schema from an explicit asset corpus inside the workspace. The
+gateway smell catalog comes from that same corpus. The option defaults to the
+target root; an explicit path is relative to the workspace. It does not expand
+the target root, and `--file` still rejects targets outside that root. The
+backend asks one native Noul decision per catalog smell, flags
 answers at or above `--probability-threshold` (default `0.6`), and abstains from
 the rest. If no smell is flagged it emits an empty result. Otherwise it makes
 one structured request that receives only the flagged rubric rows. The request
