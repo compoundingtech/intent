@@ -111,7 +111,7 @@ pub struct ReviewArgs {
     pub decision_model: String,
 
     /// Grounding model; required for the gateway backend.
-    #[arg(long, env = "INTENT_VRS_REVIEW_MODEL")]
+    #[arg(long, env = "INTENT_REVIEW_MODEL")]
     pub model: Option<String>,
 
     /// Gateway usage sidecar (default: <report>.usage.json or intent-review.usage.json).
@@ -1787,9 +1787,9 @@ fn corpus_asset(root: &Path, relative: &str) -> Result<PathBuf, String> {
 fn review_ci_guard(backend: Option<&str>, allow_ci: bool) -> Result<(), String> {
     if let Some(indicator) = automated_context_indicator() {
         let opted_in =
-            allow_ci || std::env::var("INTENT_VRS_REVIEW_ALLOW_CI").as_deref() == Ok("gateway");
+            allow_ci || std::env::var("INTENT_REVIEW_ALLOW_CI").as_deref() == Ok("gateway");
         if backend != Some("gateway") || !opted_in {
-            return Err(format!("refusing semantic review in automated context ({indicator}); only --backend gateway with --allow-ci or INTENT_VRS_REVIEW_ALLOW_CI=gateway is permitted"));
+            return Err(format!("refusing semantic review in automated context ({indicator}); only --backend gateway with --allow-ci or INTENT_REVIEW_ALLOW_CI=gateway is permitted"));
         }
     }
     Ok(())

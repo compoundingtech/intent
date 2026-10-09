@@ -87,7 +87,7 @@ struct Harness {
 impl Harness {
     fn new() -> Self {
         let temp = tempfile::tempdir().unwrap();
-        let root = temp.path().join("context/vrs");
+        let root = temp.path().join("context/intent");
         fs::create_dir_all(root.join("16-enforcement")).unwrap();
         fs::create_dir_all(root.join("13-review-smells")).unwrap();
         fs::write(temp.path().join(".git"), "fixture workspace boundary").unwrap();
@@ -103,14 +103,12 @@ impl Harness {
         .unwrap();
         fs::write(
             root.join("16-enforcement/review-prompt.md"),
-            "Use only supplied artifacts; return axe.vrs.review.v1.",
+            "Use only supplied artifacts; return axe.intent.review.v1.",
         )
         .unwrap();
         fs::write(
             root.join("16-enforcement/review-result.schema.json"),
-            include_str!("../../../context/intent/16-enforcement/review-result.schema.json")
-                .replace("axe.intent.review", "axe.vrs.review")
-                .replace("INTENT", "VRS"),
+            include_str!("../../../context/intent/16-enforcement/review-result.schema.json"),
         )
         .unwrap();
         fs::write(
@@ -128,17 +126,17 @@ impl Harness {
             .arg("review")
             .arg(&self.root)
             .args(["--backend", "gateway", "--model", "provider/grounding"])
-            .args(["--file", "context/vrs/vision.md", "--report"])
+            .args(["--file", "context/intent/vision.md", "--report"])
             .arg(&self.report)
             .args(args)
             .env("CI", "true")
             .env("AI_GATEWAY_URL", &replay.origin)
             .env_remove("AI_GATEWAY_TOKEN")
-            .env_remove("INTENT_VRS_REVIEW_ALLOW_CI")
-            .env_remove("INTENT_VRS_REVIEW_MODEL")
+            .env_remove("INTENT_REVIEW_ALLOW_CI")
+            .env_remove("INTENT_REVIEW_MODEL")
             .current_dir(self.temp.path());
         if let Some(value) = opt_in {
-            command.env("INTENT_VRS_REVIEW_ALLOW_CI", value);
+            command.env("INTENT_REVIEW_ALLOW_CI", value);
         }
         command.output().await.unwrap()
     }
@@ -149,17 +147,25 @@ impl Harness {
     }
 }
 
+/// The corpus-schema result the backend emits.
 fn finding_result() -> Value {
-    json!({"schema_version": "axe.vrs.review.v1", "summary": "Vision contains mechanism.", "findings": [{
-        "rule": "VRS.REVIEW.vision-mechanism", "severity": "warning", "gate": "review", "artifact": "context/vrs/vision.md",
-        "owner": "context/vrs/spec.md", "evidence": "Implement this with ExampleTool.", "suggested_fix": "Move implementation to spec.md."
+    json!({"schema_version": "axe.intent.review.v1", "summary": "Vision contains mechanism.", "findings": [{
+        "rule": "INTENT.REVIEW.vision-mechanism", "severity": "warning", "gate": "review", "artifact": "context/intent/vision.md",
+        "owner": "context/intent/spec.md", "evidence": "Implement this with ExampleTool.", "suggested_fix": "Move implementation to spec.md."
     }]})
+}
+
+/// The grounding response: the emitted result plus each finding's smell id.
+fn grounded(smell: &str) -> Value {
+    let mut result = finding_result();
+    result["findings"][0]["smell"] = json!(smell);
+    result
 }
 
 #[tokio::test]
 async fn gateway_replays_triage_and_one_grounding_call_with_shared_packet() {
     let h = Harness::new();
-    let replay = Replay::start(0.6, finding_result()).await;
+    let replay = Replay::start(0.6, grounded("smell-01")).await;
     let output = h.run(&replay, &["--allow-ci"], None).await;
     assert_eq!(
         output.status.code(),
@@ -181,7 +187,7 @@ async fn gateway_replays_triage_and_one_grounding_call_with_shared_packet() {
         .values()
         .all(|q| q["type"] == "noul"));
     assert_eq!(decision["state"]["artifacts"].as_object().unwrap().len(), 1);
-    assert!(decision["state"]["artifacts"]["context/vrs/vision.md"]
+    assert!(decision["state"]["artifacts"]["context/intent/vision.md"]
         .as_str()
         .unwrap()
         .contains("ExampleTool"));
@@ -189,12 +195,24 @@ async fn gateway_replays_triage_and_one_grounding_call_with_shared_packet() {
     assert!(decision["state"]["prompt"].is_string());
     let grounding = &requests[1]["body"];
     assert_eq!(grounding["response_format"]["type"], "json_schema");
-    assert!(grounding["response_format"]["json_schema"]["schema"]
-        .to_string()
-        .contains("axe.vrs.review.v1"));
+    let schema = &grounding["response_format"]["json_schema"]["schema"];
+    assert!(schema.to_string().contains("axe.intent.review.v1"));
+    assert_eq!(
+        schema["properties"]["findings"]["items"]["properties"]["smell"]["enum"],
+        json!(["smell-01"])
+    );
     let packet: Value =
         serde_json::from_str(grounding["messages"][1]["content"].as_str().unwrap()).unwrap();
-    assert_eq!(packet["flagged_smells"].as_object().unwrap().len(), 1);
+    assert_eq!(
+        packet["flagged_smells"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
+        ["smell-01"]
+    );
+    assert!(packet["packet"].get("rubric").is_none());
+    assert!(packet["packet"]["artifacts"].is_object());
     let usage = h.usage();
     assert_eq!(usage["smells"]["smell-01"]["probability"], 0.6);
     assert_eq!(usage["decision"]["usage"]["total"], 25);
@@ -208,7 +226,7 @@ async fn gateway_replays_triage_and_one_grounding_call_with_shared_packet() {
 #[tokio::test]
 async fn gateway_abstains_below_threshold_without_grounding() {
     let h = Harness::new();
-    let replay = Replay::start(0.599, finding_result()).await;
+    let replay = Replay::start(0.599, grounded("smell-01")).await;
     let output = h.run(&replay, &[], Some("gateway")).await;
     assert_eq!(
         output.status.code(),
@@ -218,7 +236,7 @@ async fn gateway_abstains_below_threshold_without_grounding() {
     );
     assert_eq!(replay.state.requests.lock().len(), 1);
     let result: Value = serde_json::from_slice(&fs::read(&h.report).unwrap()).unwrap();
-    assert_eq!(result["schema_version"], "axe.vrs.review.v1");
+    assert_eq!(result["schema_version"], "axe.intent.review.v1");
     assert_eq!(result["findings"], json!([]));
     assert_eq!(h.usage()["grounding"]["called"], false);
     assert_eq!(h.usage()["grounding"]["usage"], Value::Null);
@@ -227,7 +245,7 @@ async fn gateway_abstains_below_threshold_without_grounding() {
 #[tokio::test]
 async fn gateway_strict_findings_fail_but_advisory_findings_do_not() {
     let h = Harness::new();
-    let replay = Replay::start(0.9, finding_result()).await;
+    let replay = Replay::start(0.9, grounded("smell-01")).await;
     assert_eq!(
         h.run(&replay, &["--allow-ci", "--strict"], None)
             .await
@@ -239,27 +257,29 @@ async fn gateway_strict_findings_fail_but_advisory_findings_do_not() {
 }
 
 #[tokio::test]
-async fn gateway_rejects_invalid_schema_and_unsupplied_artifacts() {
+async fn gateway_rejects_invalid_schema_unsupplied_artifacts_and_unflagged_smells() {
     for invalid in [
         json!({"schema_version": "wrong", "summary": "Invalid", "findings": []}),
         {
-            let mut result = finding_result();
-            result["findings"][0]["artifact"] = json!("context/vrs/requirements.md");
+            let mut result = grounded("smell-01");
+            result["findings"][0]["artifact"] = json!("context/intent/requirements.md");
             result
         },
+        finding_result(),
+        grounded("smell-02"),
     ] {
         let h = Harness::new();
-        let replay = Replay::start(0.9, invalid).await;
+        let replay = Replay::start(0.9, invalid.clone()).await;
         let output = h.run(&replay, &["--allow-ci"], None).await;
-        assert_eq!(output.status.code(), Some(2));
-        assert!(!h.report.exists());
+        assert_eq!(output.status.code(), Some(2), "{invalid}");
+        assert!(!h.report.exists(), "{invalid}");
     }
 }
 
 #[tokio::test]
 async fn gateway_ci_requires_exact_opt_in_and_never_invokes_caic_preflight() {
     let h = Harness::new();
-    let replay = Replay::start(0.1, finding_result()).await;
+    let replay = Replay::start(0.1, grounded("smell-01")).await;
     for opt_in in [None, Some("true"), Some("claude")] {
         let output = h.run(&replay, &[], opt_in).await;
         assert_eq!(output.status.code(), Some(2));
@@ -296,7 +316,7 @@ async fn caic_ci_stays_refused_even_with_gateway_opt_in() {
                 "/nonexistent-caic",
             ])
             .env("CI", "true")
-            .env("INTENT_VRS_REVIEW_ALLOW_CI", "gateway")
+            .env("INTENT_REVIEW_ALLOW_CI", "gateway")
             .output()
             .await
             .unwrap();
@@ -308,7 +328,7 @@ async fn caic_ci_stays_refused_even_with_gateway_opt_in() {
 #[tokio::test]
 async fn gateway_rejects_invalid_threshold_and_target_before_network() {
     let h = Harness::new();
-    let replay = Replay::start(0.9, finding_result()).await;
+    let replay = Replay::start(0.9, grounded("smell-01")).await;
     for args in [
         vec!["--allow-ci", "--probability-threshold", "NaN"],
         vec!["--allow-ci", "--file", "../outside.md"],

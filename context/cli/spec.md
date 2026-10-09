@@ -323,17 +323,20 @@ is that the command fails before provider invocation when it detects CI or other
 known automated environments.
 
 The named `gateway` backend is the only automated-context carve-out. It runs in
-CI only with `--allow-ci` or `INTENT_VRS_REVIEW_ALLOW_CI=gateway`; neither opt-in
+CI only with `--allow-ci` or `INTENT_REVIEW_ALLOW_CI=gateway`; neither opt-in
 permits a CAIC backend. It reads `AI_GATEWAY_URL` and optional
 `AI_GATEWAY_TOKEN`, uses the same target files, deterministic diagnostics,
 review prompt, and result schema as CAIC, and requires `--model` or
-`INTENT_VRS_REVIEW_MODEL` for grounding. Repeated `--file` arguments select
+`INTENT_REVIEW_MODEL` for grounding. Repeated `--file` arguments select
 Markdown targets relative to the review workspace; without them, the whole root
 is reviewed. The backend asks one native Noul decision per catalog smell, flags
 answers at or above `--probability-threshold` (default `0.6`), and abstains from
 the rest. If no smell is flagged it emits an empty result. Otherwise it makes
-one structured request with the flagged smells and validates the response
-against the corpus schema. Findings must cite a supplied target artifact.
+one structured request that receives only the flagged rubric rows. The request
+schema extends each finding with a required `smell` id restricted to the flagged
+ids. The backend rejects findings for unflagged smells, strips the id, and
+validates the result against the corpus schema. Findings must cite a supplied
+target artifact.
 
 Output defaults to stdout. On success, stdout contains the CAIC JSON result
 envelope whose `result` field conforms to `axe.intent.review.v1`; provider progress
