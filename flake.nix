@@ -33,10 +33,12 @@
           inherit version;
           src = self;
 
-          # No git or crates.io-yanked deps in the lockfile, so the lockfile alone
-          # pins every input reproducibly — no per-dep outputHashes, and nothing
-          # here to hand-patch when a dep bumps.
-          cargoLock.lockFile = ./crates/intent/Cargo.lock;
+          # The gateway client is pinned by immutable git rev; its source hash is
+          # the only per-dependency hash. Bump it together with Cargo.lock.
+          cargoLock = {
+            lockFile = ./crates/intent/Cargo.lock;
+            outputHashes."ai-gateway-0.0.0" = "sha256-Z3BYBMFVs7KnNwl8jU6ioR3ZhKvq4fChQOrYiBl6McA=";
+          };
 
           # Builds and tests run inside the crate, while `src` stays the whole
           # repository. That is deliberate: the corpus at `context/intent/` has to remain

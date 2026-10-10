@@ -1,3 +1,4 @@
+mod gateway_review;
 mod graph_references;
 
 pub use graph_references::{GraphReference, SourceLocation, SourcePosition};
@@ -34,7 +35,7 @@ pub enum IntentCmd {
     Check(CheckArgs),
     /// Emit the derived Intent graph subset.
     Graph(GraphArgs),
-    /// Run semantic Intent review through the Coding Agent Invocation Contract.
+    /// Run semantic Intent review through CAIC or the AI gateway.
     Review(ReviewArgs),
     /// Grade semantic review against evaluation-fixture minimum assertions.
     ReviewFixtures(ReviewFixturesArgs),
@@ -73,6 +74,10 @@ pub struct ReviewArgs {
     /// Intent root to review.
     pub root: Option<PathBuf>,
 
+    /// Review asset corpus, relative to the workspace (default: target root).
+    #[arg(long)]
+    pub corpus: Option<PathBuf>,
+
     /// Rule profile to use for the deterministic diagnostics packet.
     #[arg(long, value_enum, default_value_t = Profile::Local)]
     pub profile: Profile,
@@ -81,7 +86,7 @@ pub struct ReviewArgs {
     #[arg(long, env = "CODING_AGENT", default_value = "coding-agent")]
     pub coding_agent: PathBuf,
 
-    /// CAIC backend id.
+    /// CAIC backend id, or `gateway` for direct AI gateway review.
     #[arg(long)]
     pub backend: Option<String>,
 
@@ -92,6 +97,34 @@ pub struct ReviewArgs {
     /// Write the review envelope to a file instead of stdout.
     #[arg(long)]
     pub report: Option<PathBuf>,
+
+    /// Opt the named gateway backend into automated contexts (never CAIC).
+    #[arg(long)]
+    pub allow_ci: bool,
+
+    /// Exit 1 when gateway review produces findings (default: advisory).
+    #[arg(long)]
+    pub strict: bool,
+
+    /// Minimum per-smell probability to request grounded findings.
+    #[arg(long, default_value_t = 0.6)]
+    pub probability_threshold: f64,
+
+    /// Native decision model.
+    #[arg(long, default_value = "openrouter/~typesafe/jev-latest")]
+    pub decision_model: String,
+
+    /// Grounding model; required for the gateway backend.
+    #[arg(long, env = "INTENT_REVIEW_MODEL")]
+    pub model: Option<String>,
+
+    /// Gateway usage sidecar (default: <report>.usage.json or intent-review.usage.json).
+    #[arg(long)]
+    pub usage_report: Option<PathBuf>,
+
+    /// Review only these Markdown files, relative to the review workspace. Repeatable.
+    #[arg(long = "file")]
+    pub files: Vec<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -341,15 +374,17 @@ fn run_graph(args: GraphArgs, defaults: &Defaults) -> ExitCode {
 }
 
 fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
-    let args_root = defaults.root_or_default(args.root);
-    if let Some(indicator) = automated_context_indicator() {
-        eprintln!("intent review: refusing semantic review in automated context ({indicator})");
+    let args_root = defaults.root_or_default(args.root.clone());
+    if let Err(error) = review_ci_guard(args.backend.as_deref(), args.allow_ci) {
+        eprintln!("intent review: {error}");
         return ExitCode::from(2);
     }
 
-    if let Err(error) = preflight_review_backend(&args.coding_agent, args.backend.as_deref()) {
-        eprintln!("intent review: {error}");
-        return ExitCode::from(2);
+    if args.backend.as_deref() != Some("gateway") {
+        if let Err(error) = preflight_review_backend(&args.coding_agent, args.backend.as_deref()) {
+            eprintln!("intent review: {error}");
+            return ExitCode::from(2);
+        }
     }
 
     let root = match fs::canonicalize(&args_root) {
@@ -367,20 +402,43 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         return ExitCode::from(2);
     }
     let workspace = review_workspace(&root);
-    let prompt = match corpus_asset(&root, REVIEW_PROMPT_ASSET) {
+    let corpus = match args.corpus.as_ref() {
+        Some(path) => match fs::canonicalize(workspace.join(path)) {
+            Ok(path) if path.is_dir() && path.starts_with(&workspace) => path,
+            Ok(path) => {
+                eprintln!(
+                    "intent review: asset corpus must be a directory inside the workspace: {}",
+                    path.display()
+                );
+                return ExitCode::from(2);
+            }
+            Err(error) => {
+                eprintln!(
+                    "intent review: invalid asset corpus {}: {error}",
+                    path.display()
+                );
+                return ExitCode::from(2);
+            }
+        },
+        None => root.clone(),
+    };
+    let prompt = match corpus_asset(&corpus, REVIEW_PROMPT_ASSET) {
         Ok(path) => path,
         Err(error) => {
             eprintln!("intent review: {error}");
             return ExitCode::from(2);
         }
     };
-    let schema = match corpus_asset(&root, REVIEW_SCHEMA_ASSET) {
+    let schema = match corpus_asset(&corpus, REVIEW_SCHEMA_ASSET) {
         Ok(path) => path,
         Err(error) => {
             eprintln!("intent review: {error}");
             return ExitCode::from(2);
         }
     };
+    if args.backend.as_deref() == Some("gateway") {
+        return gateway_review::run(&args, &root, &workspace, &corpus, &prompt, &schema);
+    }
 
     let invocation = ReviewInvocation {
         coding_agent: &args.coding_agent,
@@ -392,6 +450,7 @@ fn run_review(args: ReviewArgs, defaults: &Defaults) -> ExitCode {
         schema: &schema,
         profile: args.profile,
         final_output: args.report.as_deref(),
+        files: &args.files,
     };
     let mut plan = match prepare_review(&invocation) {
         Ok(plan) => plan,
@@ -432,6 +491,7 @@ struct ReviewInvocation<'a> {
     schema: &'a Path,
     profile: Profile,
     final_output: Option<&'a Path>,
+    files: &'a [PathBuf],
 }
 
 struct ReviewPlan {
@@ -454,11 +514,33 @@ impl ReviewSetupError {
     }
 }
 
-/// Build the CAIC invocation for one semantic review, including the deterministic
-/// diagnostics packet. Shared by the operator and fixture-review commands so
-/// fixture grading exercises the same invocation the operator command uses.
-fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, ReviewSetupError> {
-    let target_files = match markdown_files(invocation.root) {
+/// Shared packet inputs for CAIC and direct gateway review.
+struct ReviewPacket {
+    target_files: Vec<PathBuf>,
+    diagnostics: Value,
+}
+
+fn review_packet(invocation: &ReviewInvocation<'_>) -> Result<ReviewPacket, ReviewSetupError> {
+    let discovered = markdown_files(invocation.root);
+    let selected = if invocation.files.is_empty() {
+        discovered
+    } else {
+        invocation
+            .files
+            .iter()
+            .map(|path| {
+                let path = fs::canonicalize(invocation.workspace.join(path))?;
+                if !path.starts_with(invocation.root)
+                    || path.extension() != Some(OsStr::new("md"))
+                    || is_semantic_review_fixture_input(invocation.root, &path)
+                {
+                    return Err(format!("invalid review target: {}", path.display()).into());
+                }
+                Ok(path)
+            })
+            .collect()
+    };
+    let target_files = match selected {
         Ok(files) if !files.is_empty() => files,
         Ok(_) => {
             return Err(ReviewSetupError {
@@ -488,18 +570,30 @@ fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, Revie
 
     let report = check_root(invocation.root, invocation.profile)
         .map_err(|error| ReviewSetupError::tool(format!("deterministic check failed: {error}")))?;
-    let tempdir = tempfile::tempdir().map_err(|error| {
-        ReviewSetupError::tool(format!("failed to create diagnostics packet: {error}"))
-    })?;
-    let diagnostics_path = tempdir.path().join("intent-check.json");
-    let diagnostics_packet = serde_json::json!({
+    let diagnostics = serde_json::json!({
         "producer": "intent check --json",
         "schema_version": report.schema_version,
         "root": report.root,
         "profile": report.profile,
         "diagnostics": report.diagnostics,
     });
-    let rendered = serde_json::to_vec_pretty(&diagnostics_packet).map_err(|error| {
+    Ok(ReviewPacket {
+        target_files,
+        diagnostics,
+    })
+}
+
+/// Build the CAIC command from the same packet inputs used by the gateway.
+fn prepare_review(invocation: &ReviewInvocation<'_>) -> Result<ReviewPlan, ReviewSetupError> {
+    let ReviewPacket {
+        target_files,
+        diagnostics,
+    } = review_packet(invocation)?;
+    let tempdir = tempfile::tempdir().map_err(|error| {
+        ReviewSetupError::tool(format!("failed to create diagnostics packet: {error}"))
+    })?;
+    let diagnostics_path = tempdir.path().join("intent-check.json");
+    let rendered = serde_json::to_vec_pretty(&diagnostics).map_err(|error| {
         ReviewSetupError::tool(format!("failed to render diagnostics packet: {error}"))
     })?;
     fs::write(&diagnostics_path, rendered).map_err(|error| {
@@ -849,6 +943,7 @@ fn grade_fixture(
         schema: &schema,
         profile: args.profile,
         final_output: Some(&envelope_path),
+        files: &[],
     };
     let mut plan = match prepare_review(&invocation) {
         Ok(plan) => plan,
@@ -1006,6 +1101,9 @@ fn preflight_review_backend(
     coding_agent: &Path,
     requested_backend: Option<&str>,
 ) -> Result<(), String> {
+    if requested_backend == Some("gateway") {
+        return Err("gateway is supported by review, not review-fixtures".into());
+    }
     let output = Command::new(coding_agent)
         .arg("capabilities")
         .arg("--json")
@@ -1708,6 +1806,17 @@ fn corpus_asset(root: &Path, relative: &str) -> Result<PathBuf, String> {
         "missing review asset {relative} under corpus {}",
         root.display()
     ))
+}
+
+fn review_ci_guard(backend: Option<&str>, allow_ci: bool) -> Result<(), String> {
+    if let Some(indicator) = automated_context_indicator() {
+        let opted_in =
+            allow_ci || std::env::var("INTENT_REVIEW_ALLOW_CI").as_deref() == Ok("gateway");
+        if backend != Some("gateway") || !opted_in {
+            return Err(format!("refusing semantic review in automated context ({indicator}); only --backend gateway with --allow-ci or INTENT_REVIEW_ALLOW_CI=gateway is permitted"));
+        }
+    }
+    Ok(())
 }
 
 fn automated_context_indicator() -> Option<&'static str> {
