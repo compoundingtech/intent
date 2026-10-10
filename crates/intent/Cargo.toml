@@ -16,7 +16,7 @@ path = "src/lib.rs"
 clap = { version = "4.5", features = ["derive", "env", "string"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-ai-gateway = { git = "https://github.com/overengineeringstudio/effect-utils", rev = "c489dc8f8a90d9c107a0133de78f08e8f0763ce3" }
+ai-gateway = { git = "https://github.com/overengineeringstudio/effect-utils", rev = "61cdf616db95c56fd016b1b78d6dc3010fd83f3c" }
 jsonschema = { version = "=0.58.6", default-features = false }
 tokio = { version = "1", features = ["rt", "time"] }
 # Runtime, not just tests: `review` stages the diagnostics packet and the CAIC
