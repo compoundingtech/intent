@@ -676,8 +676,7 @@ pub(crate) fn github_anchor(heading: &str) -> String {
             output.push('-');
         } else if ch.is_ascii_alphanumeric()
             || matches!(ch, '-' | '_')
-            || (!ch.is_ascii()
-                && UNICODE_ANCHOR_CHARACTER.is_match(ch.encode_utf8(&mut encoded)))
+            || (!ch.is_ascii() && UNICODE_ANCHOR_CHARACTER.is_match(ch.encode_utf8(&mut encoded)))
         {
             output.push(ch);
         }
