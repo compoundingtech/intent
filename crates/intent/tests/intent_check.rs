@@ -553,6 +553,26 @@ fn valid_minimal_intent_tree_passes_json_check() {
 }
 
 #[test]
+fn check_resolves_em_dash_heading_anchors_locally_and_across_files() {
+    let h = Harness::new();
+    fs::write(
+        h.repo.join("context/intent/spec.md"),
+        "# Phase C — molty retirement\n\nSee [local](#phase-c--molty-retirement).\n",
+    )
+    .expect("heading with local link");
+    fs::write(
+        h.repo.join("context/intent/requirements.md"),
+        "# Requirements\n\nSee [phase](./spec.md#phase-c--molty-retirement).\n",
+    )
+    .expect("cross-file heading link");
+
+    let output = h.check(&["--json", "--profile", "strict"]);
+    let report = stdout_json(&output);
+    assert!(output.status.success(), "{report}");
+    assert_eq!(report["diagnostics"].as_array().unwrap().len(), 0);
+}
+
+#[test]
 fn missing_local_markdown_links_are_transitional_locally_and_blocking_in_strict_profile() {
     let h = Harness::new();
     fs::write(

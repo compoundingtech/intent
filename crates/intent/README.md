@@ -37,6 +37,13 @@ label; local links expose their normalized repository-relative path, while
 external links have no target location. Citation records expose the normalized
 ID or ordinal and the scope used for resolution.
 
+Heading anchors lowercase Unicode text, retain alphabetic characters, decimal
+and letter numbers, combining marks and connector punctuation, and replace each
+ASCII space with a hyphen. Other numbers and non-alphabetic symbols are removed.
+Existing hyphens are neither collapsed nor trimmed. Graph extraction and link
+checking share this reduction.
+Repeated headings receive collision-safe `-1`, `-2`, … suffixes within a file.
+
 ## `check` exiting 0 does not mean it read anything
 
 `intent check` on an empty directory, or on a path holding no Intent artifacts at all,

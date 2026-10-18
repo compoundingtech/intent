@@ -906,6 +906,7 @@ dependencies = [
  "clap",
  "jsonschema",
  "parking_lot",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

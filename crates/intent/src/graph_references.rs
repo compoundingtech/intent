@@ -663,19 +663,25 @@ fn anchors_in(document: &Document) -> BTreeMap<String, SourceLocation> {
     anchors
 }
 
-fn github_anchor(heading: &str) -> String {
-    let mut output = String::new();
-    let mut last_dash = false;
+pub(crate) fn github_anchor(heading: &str) -> String {
+    static UNICODE_ANCHOR_CHARACTER: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"\A[\p{Alphabetic}\p{Nd}\p{Nl}\p{M}\p{Pc}]\z")
+                .expect("valid GitHub anchor character pattern")
+        });
+    let mut output = String::with_capacity(heading.len());
+    let mut encoded = [0; 4];
     for ch in heading.chars().flat_map(char::to_lowercase) {
-        if ch.is_ascii_alphanumeric() {
-            output.push(ch);
-            last_dash = false;
-        } else if (ch.is_whitespace() || ch == '-') && !last_dash && !output.is_empty() {
+        if ch == ' ' {
             output.push('-');
-            last_dash = true;
+        } else if ch.is_ascii_alphanumeric()
+            || matches!(ch, '-' | '_')
+            || (!ch.is_ascii() && UNICODE_ANCHOR_CHARACTER.is_match(ch.encode_utf8(&mut encoded)))
+        {
+            output.push(ch);
         }
     }
-    output.trim_matches('-').to_string()
+    output
 }
 
 fn req_traces_in(document: &Document) -> Vec<ReqTrace> {
@@ -1272,4 +1278,63 @@ fn relative_display(root: &Path, path: &Path) -> String {
 
 fn first_line_end(content: &str) -> usize {
     content.find('\n').unwrap_or(content.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_heading_anchors_preserve_spacing_and_unicode() {
+        for (heading, expected) in [
+            ("Phase C — molty retirement", "phase-c--molty-retirement"),
+            ("Phase C – molty retirement", "phase-c--molty-retirement"),
+            (" - ", "---"),
+            ("! leading and trailing ? ", "-leading-and-trailing--"),
+            ("a.b:c/d(e)&f", "abcdef"),
+            ("`code`", "code"),
+            ("hello 😀 world", "hello--world"),
+            ("Übersicht", "übersicht"),
+            ("e\u{301} Ⅳ ٢", "e\u{301}-ⅳ-٢"),
+            ("under_score ‿ connector", "under_score-‿-connector"),
+            ("*emphasis*", "emphasis"),
+            ("a\tb", "ab"),
+            ("--already--", "--already--"),
+            ("x²", "x"),
+            ("x½", "x"),
+            ("x①", "x"),
+            ("ⓐ", "ⓐ"),
+            // Representative category fixtures from github-slugger@3461c435,
+            // test/fixtures.json: Other_Number and Other_Symbol.
+            ("a² ¹ ½ ৴ ৶ ৹b", "a-----b"),
+            ("a¦ ୰ Ⓔ Ⓣ ⓘ ⓨ 🄺 🅙 🅨 🅻b", "a--ⓔ-ⓣ-ⓘ-ⓨ-🄺-🅙-🅨-🅻b"),
+            ("heading with a - dash", "heading-with-a---dash"),
+            ("Привет non-latin 你好", "привет-non-latin-你好"),
+        ] {
+            assert_eq!(github_anchor(heading), expected, "{heading:?}");
+        }
+    }
+
+    #[test]
+    fn repeated_heading_anchors_keep_collision_suffixes() {
+        let content = "# Phase C — molty retirement\n# Phase C — molty retirement\n\
+                       # Phase C — molty retirement-1\n# Phase C — molty retirement\n";
+        let document = Document {
+            path: PathBuf::from("test.md"),
+            repo_path: "test.md".to_string(),
+            content: content.to_string(),
+            line_starts: std::iter::once(0)
+                .chain(content.match_indices('\n').map(|(index, _)| index + 1))
+                .collect(),
+        };
+        let anchors = anchors_in(&document);
+        for anchor in [
+            "phase-c--molty-retirement",
+            "phase-c--molty-retirement-1",
+            "phase-c--molty-retirement-1-1",
+            "phase-c--molty-retirement-2",
+        ] {
+            assert!(anchors.contains_key(anchor), "{anchor}");
+        }
+    }
 }

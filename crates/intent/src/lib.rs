@@ -2074,7 +2074,7 @@ fn anchors_for(content: &str) -> HashSet<String> {
         if heading.is_empty() {
             continue;
         }
-        let mut anchor = github_anchor(heading);
+        let mut anchor = graph_references::github_anchor(heading);
         let base = anchor.clone();
         let mut index = 1;
         while seen.contains(&anchor) {
@@ -2085,21 +2085,6 @@ fn anchors_for(content: &str) -> HashSet<String> {
         anchors.insert(anchor);
     }
     anchors
-}
-
-fn github_anchor(heading: &str) -> String {
-    let mut out = String::new();
-    let mut last_dash = false;
-    for ch in heading.chars().flat_map(char::to_lowercase) {
-        if ch.is_ascii_alphanumeric() {
-            out.push(ch);
-            last_dash = false;
-        } else if (ch.is_whitespace() || ch == '-') && !last_dash && !out.is_empty() {
-            out.push('-');
-            last_dash = true;
-        }
-    }
-    out.trim_matches('-').to_string()
 }
 
 #[derive(Debug)]
