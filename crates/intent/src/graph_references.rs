@@ -663,10 +663,10 @@ fn anchors_in(document: &Document) -> BTreeMap<String, SourceLocation> {
     anchors
 }
 
-fn github_anchor(heading: &str) -> String {
+pub(crate) fn github_anchor(heading: &str) -> String {
     static UNICODE_ANCHOR_CHARACTER: std::sync::LazyLock<regex::Regex> =
         std::sync::LazyLock::new(|| {
-            regex::Regex::new(r"\A[\p{L}\p{N}\p{M}\p{Pc}]\z")
+            regex::Regex::new(r"\A[\p{Alphabetic}\p{Nd}\p{Nl}\p{M}\p{Pc}]\z")
                 .expect("valid GitHub anchor character pattern")
         });
     let mut output = String::with_capacity(heading.len());
@@ -1301,6 +1301,16 @@ mod tests {
             ("*emphasis*", "emphasis"),
             ("a\tb", "ab"),
             ("--already--", "--already--"),
+            ("x²", "x"),
+            ("x½", "x"),
+            ("x①", "x"),
+            ("ⓐ", "ⓐ"),
+            // Representative category fixtures from github-slugger@3461c435,
+            // test/fixtures.json: Other_Number and Other_Symbol.
+            ("a² ¹ ½ ৴ ৶ ৹b", "a-----b"),
+            ("a¦ ୰ Ⓔ Ⓣ ⓘ ⓨ 🄺 🅙 🅨 🅻b", "a--ⓔ-ⓣ-ⓘ-ⓨ-🄺-🅙-🅨-🅻b"),
+            ("heading with a - dash", "heading-with-a---dash"),
+            ("Привет non-latin 你好", "привет-non-latin-你好"),
         ] {
             assert_eq!(github_anchor(heading), expected, "{heading:?}");
         }
