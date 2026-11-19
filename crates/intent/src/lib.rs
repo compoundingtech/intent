@@ -4,7 +4,7 @@ mod graph_references;
 pub use graph_references::{GraphReference, SourceLocation, SourcePosition};
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashSet};
 use std::ffi::{OsStr, OsString};
@@ -144,7 +144,7 @@ pub struct ReviewFixturesArgs {
     #[arg(long, env = "CODING_AGENT", default_value = "coding-agent")]
     pub coding_agent: PathBuf,
 
-    /// CAIC backend id.
+    /// CAIC backend id, or `gateway` for direct AI gateway review.
     #[arg(long)]
     pub backend: Option<String>,
 
@@ -159,6 +159,30 @@ pub struct ReviewFixturesArgs {
     /// Write the grading report to a file instead of stdout.
     #[arg(long)]
     pub report: Option<PathBuf>,
+
+    /// Grounding model; required for the gateway backend.
+    #[arg(long, env = "INTENT_REVIEW_MODEL")]
+    pub model: Option<String>,
+
+    /// Native decision model.
+    #[arg(long, default_value = "openrouter/~typesafe/jev-latest")]
+    pub decision_model: String,
+
+    /// Minimum per-smell probability to request grounded findings.
+    #[arg(long, default_value_t = 0.6)]
+    pub probability_threshold: f64,
+
+    /// Review asset corpus, relative to the source workspace (default: fixture corpus).
+    #[arg(long)]
+    pub corpus: Option<PathBuf>,
+
+    /// Opt the named gateway backend into automated contexts (never CAIC).
+    #[arg(long)]
+    pub allow_ci: bool,
+
+    /// Directory for per-fixture gateway usage (default: <report>.usage or intent-review-fixtures.usage).
+    #[arg(long)]
+    pub usage_report: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -689,7 +713,7 @@ pub struct FixtureGrade {
 /// The stable comparison contract from decision 0027: a review result must contain
 /// a finding with this `rule`, `severity`, `artifact`, and `owner`. Summary,
 /// evidence, and suggested-fix wording are deliberately not compared.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MinimumFinding {
     pub rule: String,
     pub severity: String,
@@ -743,17 +767,12 @@ pub fn grade_review_fixtures(
     defaults: &Defaults,
 ) -> Result<FixtureGradingReport, ReviewFixturesError> {
     let args_root = defaults.fixtures_or_default(args.root.clone());
-    if let Some(indicator) = automated_context_indicator() {
-        return Err(ReviewFixturesError {
-            message: format!("refusing fixture review in automated context ({indicator})"),
-        });
+    review_ci_guard(args.backend.as_deref(), args.allow_ci)
+        .map_err(|message| ReviewFixturesError { message })?;
+    if args.backend.as_deref() != Some("gateway") {
+        preflight_review_backend(&args.coding_agent, args.backend.as_deref())
+            .map_err(|message| ReviewFixturesError { message })?;
     }
-
-    preflight_review_backend(&args.coding_agent, args.backend.as_deref()).map_err(|error| {
-        ReviewFixturesError {
-            message: error.to_string(),
-        }
-    })?;
 
     let root = fs::canonicalize(&args_root).map_err(|error| ReviewFixturesError {
         message: format!("invalid fixtures root {}: {error}", args_root.display()),
@@ -767,6 +786,14 @@ pub fn grade_review_fixtures(
     let selected = select_fixtures(&root, &args.fixtures).map_err(|error| ReviewFixturesError {
         message: error.to_string(),
     })?;
+
+    if args.backend.as_deref() == Some("gateway") {
+        validate_fixture_output_paths(args, &selected)
+            .map_err(|message| ReviewFixturesError { message })?;
+        fs::create_dir_all(fixture_usage_directory(args)).map_err(|error| ReviewFixturesError {
+            message: format!("failed to create fixture usage directory: {error}"),
+        })?;
+    }
 
     // Decision 0024: eval runs materialize tracked fixtures into an isolated
     // temporary workspace instead of running against the tracked tree.
@@ -865,6 +892,105 @@ fn select_fixtures(root: &Path, requested: &[String]) -> Result<Vec<PathBuf>, St
     Ok(selected)
 }
 
+fn fixture_usage_directory(args: &ReviewFixturesArgs) -> PathBuf {
+    args.usage_report.clone().unwrap_or_else(|| {
+        args.report.as_ref().map_or_else(
+            || PathBuf::from("intent-review-fixtures.usage"),
+            |report| {
+                let mut path = report.as_os_str().to_os_string();
+                path.push(".usage");
+                PathBuf::from(path)
+            },
+        )
+    })
+}
+
+#[derive(Deserialize)]
+struct ReviewResult {
+    findings: Vec<MinimumFinding>,
+}
+
+fn decode_review_result(result: Value) -> Result<ReviewResult, String> {
+    serde_json::from_value(result).map_err(|error| format!("invalid review result: {error}"))
+}
+
+/// Resolve existing prefixes (including directory symlinks), while reducing
+/// lexical components in output paths whose final files need not exist yet.
+fn normalized_output_path(path: &Path) -> io::Result<PathBuf> {
+    use std::path::Component;
+
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let mut normalized = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Normal(_) => {
+                normalized.push(component);
+                match fs::canonicalize(&normalized) {
+                    Ok(resolved) => normalized = resolved,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => normalized.push(component),
+        }
+    }
+    Ok(normalized)
+}
+
+fn validate_fixture_output_paths(
+    args: &ReviewFixturesArgs,
+    fixtures: &[PathBuf],
+) -> Result<(), String> {
+    let Some(report) = &args.report else {
+        return Ok(());
+    };
+    let normalize = |path: &Path| {
+        normalized_output_path(path)
+            .map_err(|error| format!("cannot resolve output path {}: {error}", path.display()))
+    };
+    let report = normalize(report)?;
+    let usage = fixture_usage_directory(args);
+    for fixture in fixtures {
+        let id = fixture
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default();
+        if report == normalize(&usage.join(format!("{id}.usage.json")))? {
+            return Err(format!(
+                "--report must differ from the gateway usage sidecar for fixture {id}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Only allowlisted classifications cross into printed/serialized fixture
+/// grades. Client Display messages and raw bodies can contain arbitrary model
+/// content or credentials, even for plain-text HTTP failures.
+fn fixture_gateway_error(error: &(dyn std::error::Error + 'static)) -> String {
+    let class = match error.downcast_ref::<ai_gateway::Error>() {
+        Some(ai_gateway::Error::Http { status, .. }) => {
+            return format!("gateway review error: http (status {status})");
+        }
+        Some(ai_gateway::Error::Stream { .. }) => "stream",
+        Some(ai_gateway::Error::Transport { .. }) => "transport",
+        Some(ai_gateway::Error::Validation { .. } | ai_gateway::Error::Config { .. }) => {
+            "validation"
+        }
+        None if error.is::<gateway_review::ReviewTimeout>() => "timeout",
+        None => "structured-output",
+    };
+    format!("gateway review error: {class}")
+}
+
 fn grade_fixture(
     args: &ReviewFixturesArgs,
     fixture: &Path,
@@ -932,63 +1058,96 @@ fn grade_fixture(
         Err(error) => return errored(format!("failed to resolve eval workspace: {error}")),
     };
     let envelope_path = workspaces.join(format!("{id}.result.json"));
-
-    let invocation = ReviewInvocation {
-        coding_agent: &args.coding_agent,
-        backend: args.backend.as_deref(),
-        timeout_seconds: args.timeout_seconds,
-        root: &workspace,
-        workspace: &workspace,
-        prompt: &prompt,
-        schema: &schema,
-        profile: args.profile,
-        final_output: Some(&envelope_path),
-        files: &[],
-    };
-    let mut plan = match prepare_review(&invocation) {
-        Ok(plan) => plan,
-        Err(error) => return errored(error.message),
-    };
-    let output = match plan.command.output() {
-        Ok(output) => output,
-        Err(error) => {
-            return errored(format!(
-                "failed to start CAIC executable {}: {error}",
-                args.coding_agent.display()
-            ))
+    let result = if args.backend.as_deref() == Some("gateway") {
+        let corpus = args.corpus.as_ref().map_or_else(
+            || fixture.ancestors().nth(3).unwrap_or(fixture).to_path_buf(),
+            |path| review_workspace(fixture).join(path),
+        );
+        let corpus = match fs::canonicalize(&corpus) {
+            Ok(corpus) => corpus,
+            Err(error) => return errored(format!("invalid corpus {}: {error}", corpus.display())),
+        };
+        let review = ReviewArgs {
+            root: Some(workspace.clone()),
+            corpus: Some(corpus.clone()),
+            profile: args.profile,
+            coding_agent: args.coding_agent.clone(),
+            backend: Some("gateway".into()),
+            timeout_seconds: args.timeout_seconds,
+            report: Some(envelope_path.clone()),
+            allow_ci: args.allow_ci,
+            strict: false,
+            probability_threshold: args.probability_threshold,
+            decision_model: args.decision_model.clone(),
+            model: args.model.clone(),
+            usage_report: Some(fixture_usage_directory(args).join(format!("{id}.usage.json"))),
+            files: Vec::new(),
+        };
+        match gateway_review::run_result(&review, &workspace, &workspace, &corpus, &prompt, &schema)
+        {
+            Ok(result) => result,
+            Err(error) => return errored(fixture_gateway_error(error.as_ref())),
         }
-    };
-    if !output.status.success() {
-        // CAIC reports failures as an error envelope on stdout, so a stderr-only
-        // message would hide the actual provider diagnosis.
-        return errored(format!(
-            "review invocation failed with {}{}{}",
-            output
-                .status
-                .code()
-                .map(|code| format!("exit code {code}"))
-                .unwrap_or_else(|| "terminated process".to_string()),
-            output_tail_suffix(&output.stderr),
-            output_tail_suffix(&output.stdout)
-        ));
-    }
+    } else {
+        let invocation = ReviewInvocation {
+            coding_agent: &args.coding_agent,
+            backend: args.backend.as_deref(),
+            timeout_seconds: args.timeout_seconds,
+            root: &workspace,
+            workspace: &workspace,
+            prompt: &prompt,
+            schema: &schema,
+            profile: args.profile,
+            final_output: Some(&envelope_path),
+            files: &[],
+        };
+        let mut plan = match prepare_review(&invocation) {
+            Ok(plan) => plan,
+            Err(error) => return errored(error.message),
+        };
+        let output = match plan.command.output() {
+            Ok(output) => output,
+            Err(error) => {
+                return errored(format!(
+                    "failed to start CAIC executable {}: {error}",
+                    args.coding_agent.display()
+                ))
+            }
+        };
+        if !output.status.success() {
+            // CAIC reports failures as an error envelope on stdout, so a stderr-only
+            // message would hide the actual provider diagnosis.
+            return errored(format!(
+                "review invocation failed with {}{}{}",
+                output
+                    .status
+                    .code()
+                    .map(|code| format!("exit code {code}"))
+                    .unwrap_or_else(|| "terminated process".to_string()),
+                output_tail_suffix(&output.stderr),
+                output_tail_suffix(&output.stdout)
+            ));
+        }
 
-    let envelope = match read_json(&envelope_path) {
-        Ok(envelope) => envelope,
+        let envelope = match read_json(&envelope_path) {
+            Ok(envelope) => envelope,
+            Err(error) => return errored(error),
+        };
+        let Some(result) = envelope.get("result").cloned() else {
+            return errored("review envelope has no result field".to_string());
+        };
+        result
+    };
+    let result = match decode_review_result(result) {
+        Ok(result) => result,
         Err(error) => return errored(error),
-    };
-    let Some(result) = envelope.get("result") else {
-        return errored("review envelope has no result field".to_string());
-    };
-    let findings = match result.get("findings").and_then(Value::as_array) {
-        Some(findings) => findings,
-        None => return errored("review result has no findings array".to_string()),
     };
 
     let mut matched = Vec::new();
     let mut missing = Vec::new();
     for assertion in assertions {
-        if findings
+        if result
+            .findings
             .iter()
             .any(|finding| finding_satisfies(finding, &assertion, &workspace))
         {
@@ -1012,17 +1171,15 @@ fn grade_fixture(
     }
 }
 
-fn finding_satisfies(finding: &Value, assertion: &MinimumFinding, workspace: &Path) -> bool {
-    let field = |name: &str| {
-        finding
-            .get(name)
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-    };
-    field("rule") == assertion.rule
-        && field("severity") == assertion.severity
-        && field("owner") == assertion.owner
-        && normalized_artifact(field("artifact"), workspace)
+fn finding_satisfies(
+    finding: &MinimumFinding,
+    assertion: &MinimumFinding,
+    workspace: &Path,
+) -> bool {
+    finding.rule == assertion.rule
+        && finding.severity == assertion.severity
+        && finding.owner == assertion.owner
+        && normalized_artifact(&finding.artifact, workspace)
             == normalized_artifact(&assertion.artifact, workspace)
 }
 
@@ -1101,9 +1258,6 @@ fn preflight_review_backend(
     coding_agent: &Path,
     requested_backend: Option<&str>,
 ) -> Result<(), String> {
-    if requested_backend == Some("gateway") {
-        return Err("gateway is supported by review, not review-fixtures".into());
-    }
     let output = Command::new(coding_agent)
         .arg("capabilities")
         .arg("--json")
@@ -2435,6 +2589,69 @@ mod tests {
         fs::create_dir_all(repo.join("context/intent/16-enforcement")).unwrap();
         fs::write(repo.join("context/intent").join(REVIEW_SCHEMA_ASSET), "{}").unwrap();
         assert!(corpus_asset(&corpus, REVIEW_SCHEMA_ASSET).is_err());
+    }
+
+    #[test]
+    fn fixture_gateway_diagnostics_allowlist_every_error_surface() {
+        let sensitive = "SENTINEL_MODEL_TEXT SENTINEL_CREDENTIAL SENTINEL_GATEWAY_TOKEN";
+        let errors: Vec<(Box<dyn std::error::Error>, &str)> = vec![
+            (
+                Box::new(ai_gateway::Error::Http {
+                    status: 502,
+                    r#type: Some(sensitive.into()),
+                    message: sensitive.into(),
+                    raw_body: sensitive.into(),
+                    retry_after: Some(sensitive.into()),
+                }),
+                "http (status 502)",
+            ),
+            (
+                Box::new(ai_gateway::Error::Stream {
+                    message: sensitive.into(),
+                    raw_body: Some(sensitive.into()),
+                }),
+                "stream",
+            ),
+            (
+                Box::new(ai_gateway::Error::Transport {
+                    message: sensitive.into(),
+                }),
+                "transport",
+            ),
+            (
+                Box::new(ai_gateway::Error::Validation {
+                    errors: vec![sensitive.into()],
+                    usage: None,
+                }),
+                "validation",
+            ),
+            (
+                Box::new(ai_gateway::Error::Config {
+                    message: sensitive.into(),
+                }),
+                "validation",
+            ),
+            (Box::new(gateway_review::ReviewTimeout), "timeout"),
+            (Box::new(io::Error::other(sensitive)), "structured-output"),
+        ];
+        for (error, class) in errors {
+            let grade = FixtureGrade {
+                id: "fixture".into(),
+                status: "errored",
+                assertion_mode: None,
+                matched: Vec::new(),
+                missing: Vec::new(),
+                reason: Some(fixture_gateway_error(error.as_ref())),
+            };
+            assert_eq!(grade.reason, Some(format!("gateway review error: {class}")));
+            for surface in [
+                serde_json::to_string(&grade).unwrap(),
+                format!("{grade:?}"),
+                grade.reason.as_ref().unwrap().clone(),
+            ] {
+                assert!(!surface.contains("SENTINEL"));
+            }
+        }
     }
 
     fn write_valid_intent(root: &Path) {
