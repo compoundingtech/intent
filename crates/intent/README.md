@@ -28,16 +28,16 @@ standalone `intent review-fixtures` command uses the same function and retains
 ### Gateway fixture calibration in CI
 
 `review-fixtures` also supports `--backend gateway`, without a coding-agent
-executable or capability preflight. For an embedding CLI exposing `axe vrs`:
+executable or capability preflight:
 
 ```console
-axe vrs review-fixtures context/vrs/15-evaluation/semantic-review \
+intent review-fixtures context/intent/15-evaluation/semantic-review \
   --backend gateway --allow-ci --model provider/grounding \
   --decision-model provider/decision --probability-threshold 0.6 \
-  --corpus context/vrs --report grades.json --usage-report fixture-usage
+  --corpus context/intent --report grades.json --usage-report fixture-usage
 ```
 
-The standalone equivalent starts with `intent review-fixtures`. Supply
+Embedding CLIs expose the same `review-fixtures` arguments. Supply
 `AI_GATEWAY_URL` and, when required, `AI_GATEWAY_TOKEN` in the job environment.
 `--model` also accepts `INTENT_REVIEW_MODEL`; the decision model defaults to
 `openrouter/~typesafe/jev-latest`, matching `review`. CI requires `--allow-ci`
