@@ -53,11 +53,14 @@ fixture layout. It never searches the isolated input tree for the rubric.
 a **directory**, containing `<fixture-id>.usage.json`, including completed usage
 on later failures/timeouts. Its default is `<report>.usage`, or
 `intent-review-fixtures.usage` without `--report`. The grading report remains
-separate. Missing minimum findings fail grading (exit 1); gateway, HTTP,
-structured-JSON and schema errors mark the fixture `errored` with a reason
-(exit 2), and do not stop other selected fixtures. The pinned client does not
-expose grounding finish reasons or raw malformed JSON in validation errors;
-those errors retain its validation message rather than inventing diagnostics.
+separate: before creating files or making gateway calls, the runner rejects any
+grading-report path that aliases a selected fixture's usage file, including
+lexical and existing-directory symlink aliases. Missing minimum findings fail
+grading (exit 1); gateway, HTTP, structured-JSON and schema errors mark the fixture
+`errored` (exit 2), and do not stop other selected fixtures. Gateway error reasons
+expose only fixed error classes and HTTP status codes, never upstream messages,
+raw response bodies or model text. This applies to console output, grading JSON
+and debug representations alike.
 
 
 ## Graph references

@@ -40,6 +40,17 @@ impl std::fmt::Display for UsageWriteError {
 
 impl std::error::Error for UsageWriteError {}
 
+#[derive(Debug)]
+pub(super) struct ReviewTimeout;
+
+impl std::fmt::Display for ReviewTimeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("gateway review timed out")
+    }
+}
+
+impl std::error::Error for ReviewTimeout {}
+
 fn usage_path(args: &ReviewArgs) -> PathBuf {
     args.usage_report
         .clone()
@@ -158,7 +169,7 @@ pub(super) fn run_result(
                         Ok(result) => result,
                         Err(_) => {
                             usage.error_class = "timeout";
-                            Err("gateway review timed out".into())
+                            Err(Box::new(ReviewTimeout) as Box<dyn std::error::Error>)
                         }
                     }
                 }

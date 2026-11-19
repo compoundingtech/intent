@@ -72,11 +72,16 @@ async fn reply(State(state): State<ReplayState>, request: Request) -> Response {
     } else {
         assert_eq!(path, "/v1/chat/completions");
         if let Some(status) = state.result["replay_http_status"].as_u64() {
-            return (
-                axum::http::StatusCode::from_u16(status as u16).unwrap(),
-                Json(json!({"error": "replay failure"})),
-            )
-                .into_response();
+            let status = axum::http::StatusCode::from_u16(status as u16).unwrap();
+            let response = state
+                .result
+                .get("replay_http_body")
+                .cloned()
+                .unwrap_or_else(|| json!({"error": "replay failure"}));
+            return match response {
+                Value::String(body) => (status, body).into_response(),
+                body => (status, Json(body)).into_response(),
+            };
         }
         if state.result["replay_delay"] == true {
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -509,8 +514,9 @@ impl Harness {
         root
     }
 
-    async fn run_fixtures(&self, replay: &Replay, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_intent"))
+    fn fixture_command(&self, replay: &Replay) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_intent"));
+        command
             .arg("review-fixtures")
             .arg(self.fixture_root())
             .args([
@@ -525,13 +531,18 @@ impl Harness {
             ])
             .arg("--report")
             .arg(&self.report)
-            .args(args)
             .env("CI", "true")
             .env("AI_GATEWAY_URL", &replay.origin)
             .env_remove("AI_GATEWAY_TOKEN")
             .env_remove("INTENT_REVIEW_ALLOW_CI")
             .env_remove("INTENT_REVIEW_MODEL")
-            .current_dir(self.temp.path())
+            .current_dir(self.temp.path());
+        command
+    }
+
+    async fn run_fixtures(&self, replay: &Replay, args: &[&str]) -> Output {
+        self.fixture_command(replay)
+            .args(args)
             .output()
             .await
             .unwrap()
@@ -714,7 +725,145 @@ async fn gateway_fixtures_http_failure_and_timeout_preserve_usage_and_continue()
             assert!(h.fixture_report()["fixtures"][0]["reason"]
                 .as_str()
                 .unwrap()
-                .contains("response excerpt"));
+                .contains("http (status 502)"));
         }
     }
+}
+
+const SENTINEL_MODEL_TEXT: &str = "SENTINEL_MODEL_TEXT_DO_NOT_DISCLOSE";
+const SENTINEL_CREDENTIAL: &str = "SENTINEL_UPSTREAM_CREDENTIAL";
+const SENTINEL_GATEWAY_TOKEN: &str = "SENTINEL_GATEWAY_TOKEN";
+
+#[tokio::test]
+async fn gateway_fixture_http_errors_never_disclose_upstream_content() {
+    let sensitive = format!("{SENTINEL_MODEL_TEXT} {SENTINEL_CREDENTIAL} {SENTINEL_GATEWAY_TOKEN}");
+    for body in [
+        json!({"error": {"message": sensitive, "type": sensitive}}),
+        json!(sensitive),
+    ] {
+        let h = Harness::new();
+        let replay = Replay::start(
+            0.9,
+            json!({
+                "replay_http_status": 502, "replay_http_body": body,
+            }),
+        )
+        .await;
+        let output = h
+            .fixture_command(&replay)
+            .arg("--allow-ci")
+            .env("AI_GATEWAY_TOKEN", SENTINEL_GATEWAY_TOKEN)
+            .output()
+            .await
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        let report_bytes = fs::read(&h.report).unwrap();
+        let report: Value = serde_json::from_slice(&report_bytes).unwrap();
+        let entry = &report["fixtures"][0];
+        let grade = intent::FixtureGrade {
+            id: entry["id"].as_str().unwrap().to_owned(),
+            status: "errored",
+            assertion_mode: None,
+            matched: Vec::new(),
+            missing: Vec::new(),
+            reason: Some(entry["reason"].as_str().unwrap().to_owned()),
+        };
+        assert_eq!(
+            grade.reason.as_deref(),
+            Some("gateway review error: http (status 502)")
+        );
+        let debug = format!("{grade:?}");
+        for surface in [
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+            String::from_utf8_lossy(&report_bytes),
+            std::borrow::Cow::Borrowed(debug.as_str()),
+        ] {
+            for secret in [
+                SENTINEL_MODEL_TEXT,
+                SENTINEL_CREDENTIAL,
+                SENTINEL_GATEWAY_TOKEN,
+            ] {
+                assert!(
+                    !surface.contains(secret),
+                    "sensitive response content escaped"
+                );
+            }
+        }
+    }
+}
+
+fn tree_snapshot(root: &std::path::Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+    fn visit(
+        root: &std::path::Path,
+        directory: &std::path::Path,
+        snapshot: &mut std::collections::BTreeMap<PathBuf, Vec<u8>>,
+    ) {
+        for entry in fs::read_dir(directory).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let kind = entry.file_type().unwrap();
+            let bytes = if kind.is_symlink() {
+                fs::read_link(&path)
+                    .unwrap()
+                    .to_string_lossy()
+                    .as_bytes()
+                    .to_vec()
+            } else if kind.is_file() {
+                fs::read(&path).unwrap()
+            } else {
+                Vec::new()
+            };
+            snapshot.insert(path.strip_prefix(root).unwrap().to_path_buf(), bytes);
+            if kind.is_dir() {
+                visit(root, &path, snapshot);
+            }
+        }
+    }
+    let mut snapshot = std::collections::BTreeMap::new();
+    visit(root, root, &mut snapshot);
+    snapshot
+}
+
+#[tokio::test]
+async fn gateway_fixture_report_usage_collision_rejected_without_calls_or_writes() {
+    for report in [
+        "usage/vision-mechanism.usage.json",
+        "./usage/nested/../vision-mechanism.usage.json",
+    ] {
+        let mut h = Harness::new();
+        h.report = PathBuf::from(report);
+        let replay = Replay::start(0.9, fixture_grounded()).await;
+        let mut command = h.fixture_command(&replay);
+        command.args(["--allow-ci", "--usage-report", "usage"]);
+        let before = tree_snapshot(h.temp.path());
+        let output = command.output().await.unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("--report must differ"));
+        assert!(replay.state.requests.lock().is_empty());
+        assert_eq!(tree_snapshot(h.temp.path()), before);
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn gateway_fixture_symlinked_report_usage_collision_rejected_without_writes() {
+    let mut h = Harness::new();
+    h.report = PathBuf::from("alias/./nested/../vision-mechanism.usage.json");
+    fs::create_dir_all(h.temp.path().join("usage/nested")).unwrap();
+    fs::write(
+        h.temp.path().join("usage/vision-mechanism.usage.json"),
+        "preserve existing usage",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink("usage", h.temp.path().join("alias")).unwrap();
+    let replay = Replay::start(0.9, fixture_grounded()).await;
+    let mut command = h.fixture_command(&replay);
+    command.args(["--allow-ci", "--usage-report", "usage"]);
+    let before = tree_snapshot(h.temp.path());
+    let output = command.output().await.unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--report must differ"));
+    assert!(replay.state.requests.lock().is_empty());
+    assert_eq!(tree_snapshot(h.temp.path()), before);
 }

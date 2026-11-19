@@ -772,10 +772,6 @@ pub fn grade_review_fixtures(
     if args.backend.as_deref() != Some("gateway") {
         preflight_review_backend(&args.coding_agent, args.backend.as_deref())
             .map_err(|message| ReviewFixturesError { message })?;
-    } else {
-        fs::create_dir_all(fixture_usage_directory(args)).map_err(|error| ReviewFixturesError {
-            message: format!("failed to create fixture usage directory: {error}"),
-        })?;
     }
 
     let root = fs::canonicalize(&args_root).map_err(|error| ReviewFixturesError {
@@ -790,6 +786,14 @@ pub fn grade_review_fixtures(
     let selected = select_fixtures(&root, &args.fixtures).map_err(|error| ReviewFixturesError {
         message: error.to_string(),
     })?;
+
+    if args.backend.as_deref() == Some("gateway") {
+        validate_fixture_output_paths(args, &selected)
+            .map_err(|message| ReviewFixturesError { message })?;
+        fs::create_dir_all(fixture_usage_directory(args)).map_err(|error| ReviewFixturesError {
+            message: format!("failed to create fixture usage directory: {error}"),
+        })?;
+    }
 
     // Decision 0024: eval runs materialize tracked fixtures into an isolated
     // temporary workspace instead of running against the tracked tree.
@@ -909,28 +913,82 @@ struct ReviewResult {
 fn decode_review_result(result: Value) -> Result<ReviewResult, String> {
     serde_json::from_value(result).map_err(|error| format!("invalid review result: {error}"))
 }
-fn fixture_gateway_error(error: &(dyn std::error::Error + 'static)) -> String {
-    let raw = match error.downcast_ref::<ai_gateway::Error>() {
-        Some(ai_gateway::Error::Http { raw_body, .. }) => Some(raw_body.as_str()),
-        Some(ai_gateway::Error::Stream { raw_body, .. }) => raw_body.as_deref(),
-        _ => None,
+
+/// Resolve existing prefixes (including directory symlinks), while reducing
+/// lexical components in output paths whose final files need not exist yet.
+fn normalized_output_path(path: &Path) -> io::Result<PathBuf> {
+    use std::path::Component;
+
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
     };
-    let mut message = error.to_string();
-    if let Some(raw) = raw {
-        message.push_str("; response excerpt: ");
-        // Redact before truncation so a token crossing the excerpt boundary
-        // cannot be partially disclosed.
-        let raw = redact_gateway_token(raw.to_string());
-        message.extend(raw.chars().take(1024));
+    let mut normalized = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Normal(_) => {
+                normalized.push(component);
+                match fs::canonicalize(&normalized) {
+                    Ok(resolved) => normalized = resolved,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => normalized.push(component),
+        }
     }
-    redact_gateway_token(message)
+    Ok(normalized)
 }
 
-fn redact_gateway_token(message: String) -> String {
-    match std::env::var("AI_GATEWAY_TOKEN") {
-        Ok(token) if !token.is_empty() => message.replace(&token, "[REDACTED]"),
-        _ => message,
+fn validate_fixture_output_paths(
+    args: &ReviewFixturesArgs,
+    fixtures: &[PathBuf],
+) -> Result<(), String> {
+    let Some(report) = &args.report else {
+        return Ok(());
+    };
+    let normalize = |path: &Path| {
+        normalized_output_path(path)
+            .map_err(|error| format!("cannot resolve output path {}: {error}", path.display()))
+    };
+    let report = normalize(report)?;
+    let usage = fixture_usage_directory(args);
+    for fixture in fixtures {
+        let id = fixture
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default();
+        if report == normalize(&usage.join(format!("{id}.usage.json")))? {
+            return Err(format!(
+                "--report must differ from the gateway usage sidecar for fixture {id}"
+            ));
+        }
     }
+    Ok(())
+}
+
+/// Only allowlisted classifications cross into printed/serialized fixture
+/// grades. Client Display messages and raw bodies can contain arbitrary model
+/// content or credentials, even for plain-text HTTP failures.
+fn fixture_gateway_error(error: &(dyn std::error::Error + 'static)) -> String {
+    let class = match error.downcast_ref::<ai_gateway::Error>() {
+        Some(ai_gateway::Error::Http { status, .. }) => {
+            return format!("gateway review error: http (status {status})");
+        }
+        Some(ai_gateway::Error::Stream { .. }) => "stream",
+        Some(ai_gateway::Error::Transport { .. }) => "transport",
+        Some(ai_gateway::Error::Validation { .. } | ai_gateway::Error::Config { .. }) => {
+            "validation"
+        }
+        None if error.is::<gateway_review::ReviewTimeout>() => "timeout",
+        None => "structured-output",
+    };
+    format!("gateway review error: {class}")
 }
 
 fn grade_fixture(
@@ -2531,6 +2589,69 @@ mod tests {
         fs::create_dir_all(repo.join("context/intent/16-enforcement")).unwrap();
         fs::write(repo.join("context/intent").join(REVIEW_SCHEMA_ASSET), "{}").unwrap();
         assert!(corpus_asset(&corpus, REVIEW_SCHEMA_ASSET).is_err());
+    }
+
+    #[test]
+    fn fixture_gateway_diagnostics_allowlist_every_error_surface() {
+        let sensitive = "SENTINEL_MODEL_TEXT SENTINEL_CREDENTIAL SENTINEL_GATEWAY_TOKEN";
+        let errors: Vec<(Box<dyn std::error::Error>, &str)> = vec![
+            (
+                Box::new(ai_gateway::Error::Http {
+                    status: 502,
+                    r#type: Some(sensitive.into()),
+                    message: sensitive.into(),
+                    raw_body: sensitive.into(),
+                    retry_after: Some(sensitive.into()),
+                }),
+                "http (status 502)",
+            ),
+            (
+                Box::new(ai_gateway::Error::Stream {
+                    message: sensitive.into(),
+                    raw_body: Some(sensitive.into()),
+                }),
+                "stream",
+            ),
+            (
+                Box::new(ai_gateway::Error::Transport {
+                    message: sensitive.into(),
+                }),
+                "transport",
+            ),
+            (
+                Box::new(ai_gateway::Error::Validation {
+                    errors: vec![sensitive.into()],
+                    usage: None,
+                }),
+                "validation",
+            ),
+            (
+                Box::new(ai_gateway::Error::Config {
+                    message: sensitive.into(),
+                }),
+                "validation",
+            ),
+            (Box::new(gateway_review::ReviewTimeout), "timeout"),
+            (Box::new(io::Error::other(sensitive)), "structured-output"),
+        ];
+        for (error, class) in errors {
+            let grade = FixtureGrade {
+                id: "fixture".into(),
+                status: "errored",
+                assertion_mode: None,
+                matched: Vec::new(),
+                missing: Vec::new(),
+                reason: Some(fixture_gateway_error(error.as_ref())),
+            };
+            assert_eq!(grade.reason, Some(format!("gateway review error: {class}")));
+            for surface in [
+                serde_json::to_string(&grade).unwrap(),
+                format!("{grade:?}"),
+                grade.reason.as_ref().unwrap().clone(),
+            ] {
+                assert!(!surface.contains("SENTINEL"));
+            }
+        }
     }
 
     fn write_valid_intent(root: &Path) {
