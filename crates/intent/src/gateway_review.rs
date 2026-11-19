@@ -22,6 +22,24 @@ struct UsageSidecar {
     error_class: &'static str,
 }
 
+#[derive(Debug)]
+struct UsageWriteError {
+    write_error: io::Error,
+    review_error: Option<Box<dyn std::error::Error>>,
+}
+
+impl std::fmt::Display for UsageWriteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to write usage sidecar: {}", self.write_error)?;
+        if let Some(error) = &self.review_error {
+            write!(f, "; {error}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for UsageWriteError {}
+
 fn usage_path(args: &ReviewArgs) -> PathBuf {
     args.usage_report
         .clone()
@@ -43,9 +61,40 @@ pub(super) fn run(
     prompt: &Path,
     schema: &Path,
 ) -> ExitCode {
+    match run_result(args, root, workspace, corpus, prompt, schema) {
+        Ok(result) if args.strict && !result["findings"].as_array().unwrap().is_empty() => {
+            ExitCode::from(1)
+        }
+        Ok(_) => ExitCode::SUCCESS,
+        Err(error) => {
+            if let Some(error) = error.downcast_ref::<UsageWriteError>() {
+                eprintln!(
+                    "intent review: gateway: failed to write usage sidecar: {}",
+                    error.write_error
+                );
+                if let Some(error) = &error.review_error {
+                    eprintln!("intent review: gateway: {error}");
+                }
+            } else {
+                eprintln!("intent review: gateway: {error}");
+            }
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// Execute one review, preserving completed usage even on errors and timeouts.
+pub(super) fn run_result(
+    args: &ReviewArgs,
+    root: &Path,
+    workspace: &Path,
+    corpus: &Path,
+    prompt: &Path,
+    schema: &Path,
+) -> Result<Value> {
     let mut usage = UsageSidecar::default();
     let usage_path = usage_path(args);
-    let result = (|| -> Result<bool> {
+    let result = (|| -> Result<Value> {
         if args.report.as_ref() == Some(&usage_path) {
             return Err("--usage-report must differ from --report".into());
         }
@@ -143,7 +192,7 @@ pub(super) fn run(
             stdout.write_all(&bytes)?;
             stdout.write_all(b"\n")?;
         }
-        Ok(!findings.is_empty())
+        Ok(result)
     })();
     if let Some(mut data) = usage.data {
         data["outcome"] = json!(if result.is_ok() { "ok" } else { "error" });
@@ -165,21 +214,13 @@ pub(super) fn run(
             .map_err(io::Error::other)
             .and_then(|bytes| fs::write(&usage_path, bytes))
         {
-            eprintln!("intent review: gateway: failed to write usage sidecar: {error}");
-            if let Err(error) = result {
-                eprintln!("intent review: gateway: {error}");
-            }
-            return ExitCode::from(2);
+            return Err(Box::new(UsageWriteError {
+                write_error: error,
+                review_error: result.err(),
+            }));
         }
     }
-    match result {
-        Ok(findings) if args.strict && findings => ExitCode::from(1),
-        Ok(_) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("intent review: gateway: {error}");
-            ExitCode::from(2)
-        }
-    }
+    result
 }
 
 /// Read the authoritative catalog rows rather than maintaining a second smell list.

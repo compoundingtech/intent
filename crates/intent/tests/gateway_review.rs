@@ -83,7 +83,7 @@ async fn reply(State(state): State<ReplayState>, request: Request) -> Response {
         }
         Json(
             json!({"id": "replay", "object": "chat.completion", "created": 0, "model": "provider/grounding",
-            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": state.result.to_string()}}],
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": state.result["replay_raw_content"].as_str().map(str::to_owned).unwrap_or_else(|| state.result.to_string())}}],
             "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40}}),
         ).into_response()
     }
@@ -475,4 +475,246 @@ async fn gateway_preserves_billed_usage_when_decision_validation_rejects_answer(
     assert_eq!(usage["grounding"]["called"], false);
     assert_eq!(replay.state.requests.lock().len(), 1);
     assert!(!h.report.exists());
+}
+
+impl Harness {
+    fn fixture_root(&self) -> PathBuf {
+        let root = self.root.join("15-evaluation/semantic-review");
+        let fixture = root.join("vision-mechanism");
+        fs::create_dir_all(fixture.join("input")).unwrap();
+        fs::write(
+            fixture.join("input/vision.md"),
+            "# Vision\nImplement this with ExampleTool.\n",
+        )
+        .unwrap();
+        fs::write(
+            fixture.join("fixture.json"),
+            json!({
+                "assertion_mode": "minimum_findings",
+                "prompt_ref": "../../../16-enforcement/review-prompt.md",
+                "schema_ref": "../../../16-enforcement/review-result.schema.json"
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            fixture.join("assertions.json"),
+            json!({"minimum_findings": [{
+                "rule": "INTENT.REVIEW.vision-mechanism", "severity": "warning",
+                "artifact": "input/vision.md", "owner": "input/spec.md"
+            }]})
+            .to_string(),
+        )
+        .unwrap();
+        root
+    }
+
+    async fn run_fixtures(&self, replay: &Replay, args: &[&str]) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_intent"))
+            .arg("review-fixtures")
+            .arg(self.fixture_root())
+            .args([
+                "--backend",
+                "gateway",
+                "--model",
+                "provider/grounding",
+                "--decision-model",
+                "provider/decision",
+                "--coding-agent",
+                "/nonexistent-caic",
+            ])
+            .arg("--report")
+            .arg(&self.report)
+            .args(args)
+            .env("CI", "true")
+            .env("AI_GATEWAY_URL", &replay.origin)
+            .env_remove("AI_GATEWAY_TOKEN")
+            .env_remove("INTENT_REVIEW_ALLOW_CI")
+            .env_remove("INTENT_REVIEW_MODEL")
+            .current_dir(self.temp.path())
+            .output()
+            .await
+            .unwrap()
+    }
+
+    fn fixture_report(&self) -> Value {
+        serde_json::from_slice(&fs::read(&self.report).unwrap()).unwrap()
+    }
+}
+
+fn fixture_grounded() -> Value {
+    let mut result = grounded("smell-01");
+    result["findings"][0]["artifact"] = json!("input/vision.md");
+    result["findings"][0]["owner"] = json!("input/spec.md");
+    result
+}
+
+#[tokio::test]
+async fn gateway_fixtures_pass_all_minimum_findings_with_isolated_packet_and_usage() {
+    let h = Harness::new();
+    let replay = Replay::start(0.9, fixture_grounded()).await;
+    let output = h
+        .run_fixtures(&replay, &["--allow-ci", "--corpus", "context/intent"])
+        .await;
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report = h.fixture_report();
+    assert_eq!(report["passed"], 1);
+    assert_eq!(
+        report["fixtures"][0]["matched"].as_array().unwrap().len(),
+        1
+    );
+    let requests = replay.state.requests.lock();
+    assert_eq!(requests[0]["body"]["model"], "provider/decision");
+    assert_eq!(
+        requests[0]["body"]["state"]["artifacts"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
+        ["input/vision.md"]
+    );
+    let usage: Value = serde_json::from_slice(
+        &fs::read(
+            h.temp
+                .path()
+                .join("result.json.usage/vision-mechanism.usage.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(usage["outcome"], "ok");
+    assert_eq!(usage["grounding"]["usage"]["total"], 40);
+    assert_eq!(
+        fs::read_to_string(
+            h.root
+                .join("15-evaluation/semantic-review/vision-mechanism/input/vision.md")
+        )
+        .unwrap(),
+        "# Vision\nImplement this with ExampleTool.\n"
+    );
+}
+
+#[tokio::test]
+async fn gateway_fixtures_fail_missing_minimum_finding() {
+    let h = Harness::new();
+    let replay = Replay::start(0.1, fixture_grounded()).await;
+    let output = h.run_fixtures(&replay, &["--allow-ci"]).await;
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(h.fixture_report()["failed"], 1);
+    assert_eq!(
+        h.fixture_report()["fixtures"][0]["missing"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn gateway_fixtures_grounding_parse_error_is_errored() {
+    let h = Harness::new();
+    let replay = Replay::start(0.9, json!({"replay_raw_content": "{not json"})).await;
+    let output = h.run_fixtures(&replay, &["--allow-ci"]).await;
+    assert_eq!(output.status.code(), Some(2));
+    let report = h.fixture_report();
+    assert_eq!(report["errored"], 1);
+    assert_eq!(report["fixtures"][0]["status"], "errored");
+    assert!(report["fixtures"][0]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("validation"));
+}
+
+#[tokio::test]
+async fn gateway_fixtures_ci_requires_opt_in_before_network_or_caic() {
+    let h = Harness::new();
+    let replay = Replay::start(0.9, fixture_grounded()).await;
+    let output = h.run_fixtures(&replay, &[]).await;
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("automated context (CI)"));
+    assert!(replay.state.requests.lock().is_empty());
+}
+
+#[tokio::test]
+async fn caic_fixtures_ci_rejected_even_with_gateway_opt_in() {
+    let h = Harness::new();
+    let replay = Replay::start(0.9, fixture_grounded()).await;
+    let output = Command::new(env!("CARGO_BIN_EXE_intent"))
+        .arg("review-fixtures")
+        .arg(h.fixture_root())
+        .args([
+            "--allow-ci",
+            "--backend",
+            "claude",
+            "--coding-agent",
+            "/nonexistent-caic",
+        ])
+        .env("CI", "true")
+        .env("INTENT_REVIEW_ALLOW_CI", "gateway")
+        .output()
+        .await
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("automated context (CI)"));
+    assert!(replay.state.requests.lock().is_empty());
+}
+
+#[tokio::test]
+async fn gateway_fixtures_http_failure_and_timeout_preserve_usage_and_continue() {
+    for (response, args, class) in [
+        (
+            json!({"replay_http_status": 502}),
+            vec!["--allow-ci", "--usage-report", "usage"],
+            "http",
+        ),
+        (
+            json!({"replay_delay": true}),
+            vec![
+                "--allow-ci",
+                "--timeout-seconds",
+                "1",
+                "--usage-report",
+                "usage",
+            ],
+            "timeout",
+        ),
+    ] {
+        let h = Harness::new();
+        let root = h.fixture_root();
+        let second = root.join("second");
+        fs::create_dir_all(second.join("input")).unwrap();
+        for file in ["fixture.json", "assertions.json", "input/vision.md"] {
+            fs::copy(root.join("vision-mechanism").join(file), second.join(file)).unwrap();
+        }
+        let replay = Replay::start(0.9, response).await;
+        let output = h.run_fixtures(&replay, &args).await;
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(h.fixture_report()["errored"], 2);
+        assert_eq!(replay.state.requests.lock().len(), 4);
+        for id in ["second", "vision-mechanism"] {
+            let usage: Value = serde_json::from_slice(
+                &fs::read(h.temp.path().join("usage").join(format!("{id}.usage.json"))).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(usage["outcome"], "error");
+            assert_eq!(usage["error_class"], class);
+            assert_eq!(usage["decision"]["usage"]["total"], 25);
+        }
+        if class == "http" {
+            assert!(h.fixture_report()["fixtures"][0]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("response excerpt"));
+        }
+    }
 }

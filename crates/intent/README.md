@@ -25,6 +25,41 @@ set `schema_version` to their own stable command schema before serializing. The
 standalone `intent review-fixtures` command uses the same function and retains
 `axe.intent.review-fixtures.v1`.
 
+### Gateway fixture calibration in CI
+
+`review-fixtures` also supports `--backend gateway`, without a coding-agent
+executable or capability preflight. For an embedding CLI exposing `axe vrs`:
+
+```console
+axe vrs review-fixtures context/vrs/15-evaluation/semantic-review \
+  --backend gateway --allow-ci --model provider/grounding \
+  --decision-model provider/decision --probability-threshold 0.6 \
+  --corpus context/vrs --report grades.json --usage-report fixture-usage
+```
+
+The standalone equivalent starts with `intent review-fixtures`. Supply
+`AI_GATEWAY_URL` and, when required, `AI_GATEWAY_TOKEN` in the job environment.
+`--model` also accepts `INTENT_REVIEW_MODEL`; the decision model defaults to
+`openrouter/~typesafe/jev-latest`, matching `review`. CI requires `--allow-ci`
+or `INTENT_REVIEW_ALLOW_CI=gateway`. CAIC remains prohibited in CI even with opt-in.
+
+Each fixture runs against its own isolated `input/` copy and uses the prompt and
+schema declared by its manifest. `--corpus` selects the smell rubric's corpus,
+relative to the source workspace (absolute paths also work). Without it the
+corpus is the parent of `15-evaluation/semantic-review`, using the standard
+fixture layout. It never searches the isolated input tree for the rubric.
+
+`--timeout-seconds` applies independently to each fixture. `--usage-report` is
+a **directory**, containing `<fixture-id>.usage.json`, including completed usage
+on later failures/timeouts. Its default is `<report>.usage`, or
+`intent-review-fixtures.usage` without `--report`. The grading report remains
+separate. Missing minimum findings fail grading (exit 1); gateway, HTTP,
+structured-JSON and schema errors mark the fixture `errored` with a reason
+(exit 2), and do not stop other selected fixtures. The pinned client does not
+expose grounding finish reasons or raw malformed JSON in validation errors;
+those errors retain its validation message rather than inventing diagnostics.
+
+
 ## Graph references
 
 `intent graph --json` keeps the existing `nodes` and `edges` arrays and adds one
